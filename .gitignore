@@ -1,0 +1,16 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# SQLite database + WAL sidecar files
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
