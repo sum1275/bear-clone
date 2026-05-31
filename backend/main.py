@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
 import os
 import aiosqlite
 from contextlib import asynccontextmanager
@@ -9,6 +12,13 @@ async def lifespan(app: FastAPI):
   yield
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "notes.db")
 
@@ -26,7 +36,15 @@ async def init_db():
     """)
     await db.commit()
 
-@app.get("/notes") # registers this function as the GET /notes endpoint
+class Note(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: str
+    updated_at: str
+
+
+@app.get("/notes", response_model=List[Note])
 async def list_notes():
     async with aiosqlite.connect(DB_PATH) as db: # opens a connection to the SQLite file
         db.row_factory = aiosqlite.Row # makes rows behave like dicts instead of plain tuples
