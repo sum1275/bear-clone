@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "types:generate": "openapi-typescript http://127.0.0.1:8000/openapi.json -o lib/api.d.ts || (echo 'Failed to generate types. Is the backend running at http://127.0.0.1:8000?' && exit 1)"
+
   },
   "dependencies": {
     "next": "16.2.6",
@@ -20,6 +22,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
