@@ -24,7 +24,7 @@ frontend/  Next.js app
 | GET | `/notes` | List all notes (optional `?tag=` filter) |
 | POST | `/notes` | Create note |
 | GET | `/notes/{id}` | Get note |
-| PATCH | `/notes/{id}` | Update note |
+| PUT | `/notes/{id}` | Replace note |
 | DELETE | `/notes/{id}` | Delete note |
 | GET | `/tags` | List all tags |
 
@@ -40,3 +40,10 @@ Next.js app on `http://localhost:3000`. API base: `http://localhost:3000` (proxi
 
 - CORS is configured for `http://localhost:3000` only. Update `allow_origins` in `main.py` for other origins.
 - Run backend and frontend in separate terminals.
+- Seed sample data: `sqlite3 backend/data/notes.db` with INSERT statements (see README step 4).
+
+## Current state (as of 2026-06-01)
+
+- Backend: only `GET /notes` is implemented. All other endpoints listed above are planned but not yet built.
+- Frontend: scaffold only — `page.tsx` is an empty shell. TypeScript types are auto-generated from the backend OpenAPI schema into `frontend/lib/api.d.ts` via `npm run types:generate`.
+- No tags support in the DB yet — the schema has only the `notes` table (`id`, `title`, `content`, `created_at`, `updated_at`).
