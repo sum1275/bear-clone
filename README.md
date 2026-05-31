@@ -60,3 +60,33 @@ npm run dev
 ```
 
 Frontend runs at `http://localhost:3000`.
+
+### 4. Seed sample data (optional)
+
+With the backend running, insert a few sample notes directly into the database:
+
+```bash
+sqlite3 backend/data/notes.db <<'EOF'
+INSERT INTO notes (title, content, created_at, updated_at) VALUES
+  ('Welcome to Bear Clone', '# Welcome\n\nThis is your first note. Start writing in **Markdown**!', datetime('now'), datetime('now')),
+  ('Markdown cheatsheet', '## Headings\n\n# H1\n## H2\n\n## Emphasis\n\n*italic* **bold**\n\n## Lists\n\n- item one\n- item two\n\n## Code\n\n`inline code`\n\n```\ncode block\n```', datetime('now'), datetime('now')),
+  ('Ideas', '- Build a tagging system\n- Add search\n- Dark mode', datetime('now'), datetime('now'));
+EOF
+```
+
+Verify the rows were inserted:
+
+```bash
+sqlite3 backend/data/notes.db "SELECT id, title FROM notes;"
+```
+
+### 5. Generate TypeScript types
+
+With the backend running, generate types from the API schema:
+
+```bash
+cd frontend
+npm run types:generate
+```
+
+Re-run this whenever the backend models change.
