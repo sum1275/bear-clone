@@ -19,16 +19,17 @@ frontend/  Next.js app
 
 ### Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/notes` | List all notes (optional `?tag=` filter) |
-| POST | `/notes` | Create note |
-| GET | `/notes/{id}` | Get note |
-| PUT | `/notes/{id}` | Replace note |
-| DELETE | `/notes/{id}` | Delete note |
-| GET | `/tags` | List all tags |
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| GET | `/notes` | List all notes | ✅ implemented |
+| POST | `/notes` | Create note | ✅ implemented |
+| GET | `/notes/{id}` | Get note (404 if missing) | ✅ implemented |
+| PUT | `/notes/{id}` | Replace note (404 if missing) | ✅ implemented |
+| DELETE | `/notes/{id}` | Delete note (204, 404 if missing) | ✅ implemented |
+| GET | `/notes?tag=` | Filter notes by tag | planned (needs tags) |
+| GET | `/tags` | List all tags | planned (needs tags) |
 
-Note payloads include a `tags` string array. Tags are managed automatically — adding/removing from the array on a PATCH updates the join table.
+Create/update payloads (`NoteCreate`) take `title` and `content`. Tags are not yet supported — no `tags` array in payloads and no join table in the schema.
 
 ## Frontend
 
@@ -44,6 +45,6 @@ Next.js app on `http://localhost:3000`. API base: `http://localhost:3000` (proxi
 
 ## Current state (as of 2026-06-01)
 
-- Backend: only `GET /notes` is implemented. All other endpoints listed above are planned but not yet built.
-- Frontend: scaffold only — `page.tsx` is an empty shell. TypeScript types are auto-generated from the backend OpenAPI schema into `frontend/lib/api.d.ts` via `npm run types:generate`.
-- No tags support in the DB yet — the schema has only the `notes` table (`id`, `title`, `content`, `created_at`, `updated_at`).
+- Backend: full notes CRUD is implemented — `GET /notes`, `POST /notes`, `GET /notes/{id}`, `PUT /notes/{id}`, `DELETE /notes/{id}` (see [backend/main.py](backend/main.py)).
+- Frontend: [frontend/app/page.tsx](frontend/app/page.tsx) fetches `GET /notes` and renders the list (title, content, updated_at) with loading/error/empty states. No create/edit/delete UI yet. TypeScript types are auto-generated from the backend OpenAPI schema into `frontend/lib/api.d.ts` via `npm run types:generate`.
+- No tags support yet — the schema has only the `notes` table (`id`, `title`, `content`, `created_at`, `updated_at`); no tags table, `/tags` endpoint, or `?tag=` filter.
