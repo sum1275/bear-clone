@@ -49,6 +49,8 @@ Backend runs at `http://localhost:8000`. Verify with:
 curl http://localhost:8000/notes
 ```
 
+See [backend/API.md](backend/API.md) for the full endpoint reference and curl examples.
+
 ### 3. Frontend setup
 
 Open a new terminal:
