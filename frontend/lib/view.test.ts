@@ -10,12 +10,17 @@ import {
   matchesQuery,
   relativeTime,
   snippet,
+  sortNotes,
   splitEmoji,
   type FlagSets,
 } from "@/lib/view";
 
 function note(id: number, content: string, updated = "2026-01-01T00:00:00Z"): Note {
   return { id, title: `n${id}`, content, created_at: updated, updated_at: updated };
+}
+
+function dated(id: number, title: string, created: string, updated: string): Note {
+  return { id, title, content: "", created_at: created, updated_at: updated };
 }
 
 describe("splitEmoji", () => {
@@ -92,6 +97,37 @@ describe("matchesFilter", () => {
     const f = { type: "tag", tag: "science" } as const;
     expect(matchesFilter(note(1, "#science/wildlife"), f, flags())).toBe(true);
     expect(matchesFilter(note(2, "#other"), f, flags())).toBe(false);
+  });
+  it("pinned matches pinned notes only", () => {
+    const f = flags({ pinned: new Set([1]) });
+    expect(matchesFilter(note(1, "x"), { type: "pinned" }, f)).toBe(true);
+    expect(matchesFilter(note(2, "x"), { type: "pinned" }, f)).toBe(false);
+  });
+});
+
+describe("sortNotes", () => {
+  const flags = (over: Partial<FlagSets> = {}): FlagSets => ({ ...emptyFlags(), ...over });
+  const a = dated(1, "Banana", "2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z");
+  const b = dated(2, "Apple", "2026-01-02T00:00:00Z", "2026-01-01T00:00:00Z");
+  const c = dated(3, "Cherry", "2026-01-03T00:00:00Z", "2026-01-02T00:00:00Z");
+
+  it("orders by modified (newest first) by default", () => {
+    expect(sortNotes([b, a, c], "modified", flags()).map((n) => n.id)).toEqual([1, 3, 2]);
+  });
+  it("orders by created (newest first)", () => {
+    expect(sortNotes([a, b, c], "created", flags()).map((n) => n.id)).toEqual([3, 2, 1]);
+  });
+  it("orders by title alphabetically", () => {
+    expect(sortNotes([a, b, c], "title", flags()).map((n) => n.id)).toEqual([2, 1, 3]);
+  });
+  it("floats pinned notes to the top within the chosen order", () => {
+    const f = flags({ pinned: new Set([2]) });
+    expect(sortNotes([a, b, c], "modified", f).map((n) => n.id)).toEqual([2, 1, 3]);
+  });
+  it("does not mutate the input array", () => {
+    const input = [b, a, c];
+    sortNotes(input, "title", flags());
+    expect(input.map((n) => n.id)).toEqual([2, 1, 3]);
   });
 });
 

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
+import { Menu, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
 import { extractTags, renderMarkdown } from "@/lib/markdown";
 import { findBlock, segmentBlocks } from "@/lib/segments";
+import { downloadText, safeFilename } from "@/lib/download";
 import type { FlagSets } from "@/lib/view";
 
 export interface Draft {
@@ -18,6 +20,7 @@ interface EditorProps {
   onChange: (patch: Partial<Draft>) => void;
   onBack: () => void;
   onToggleInfo: () => void;
+  onSearch: () => void;
   onPin: () => void;
   onLock: () => void;
   onArchive: () => void;
@@ -37,6 +40,7 @@ export function Editor({
   onChange,
   onBack,
   onToggleInfo,
+  onSearch,
   onPin,
   onLock,
   onArchive,
@@ -44,7 +48,6 @@ export function Editor({
   onRestore,
   onDeleteForever,
 }: EditorProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   // The block currently shown as raw source (line range), or null when the
   // whole note is rendered. Tracked by line range so edits can be spliced back.
   const [active, setActive] = useState<{ start: number; end: number } | null>(null);
@@ -183,6 +186,30 @@ export function Editor({
   }
 
   const tags = extractTags(draft.content);
+  const title = draft.title || note.title || "Untitled";
+
+  // ---- more-menu actions ----
+  const copy = (text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+  };
+  // Strip markdown to readable plain text (keeps line breaks, unlike snippet()).
+  const toPlainText = (md: string): string =>
+    md
+      .replace(/```\w*\n?([\s\S]*?)```/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^\s*[-*]\s+\[[ xX]\]\s+/gm, "")
+      .replace(/^\s*[-*]\s+/gm, "• ")
+      .replace(/^\s*>\s?/gm, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/~~([^~]+)~~/g, "$1")
+      .replace(/==([^=]+)==/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[\[([^\]]+)\]\]/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  const exportNote = () =>
+    downloadText(safeFilename(title, "md"), `# ${title}\n\n${draft.content}`);
+  const copyLink = () => copy(`${location.origin}/?note=${note.id}`);
 
   return (
     <section className="editorpane">
@@ -197,75 +224,52 @@ export function Editor({
         <button onClick={onToggleInfo} aria-label="Note info">
           <Icon name="info" />
         </button>
-        <div className="menuwrap">
-          <button onClick={() => setMenuOpen((v) => !v)} aria-label="More actions">
-            <Icon name="more" />
-          </button>
-          {menuOpen && (
-            <div className="menu" onMouseLeave={() => setMenuOpen(false)}>
-              {inTrash ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRestore();
-                    }}
-                  >
-                    <Icon name="archive" /> Restore
-                  </button>
-                  <div className="sep" />
-                  <button
-                    className="danger"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onDeleteForever();
-                    }}
-                  >
-                    <Icon name="trash" /> Delete forever
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onPin();
-                    }}
-                  >
-                    <Icon name="pin" /> {flags.pinned.has(note.id) ? "Unpin" : "Pin"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onLock();
-                    }}
-                  >
-                    <Icon name={flags.locked.has(note.id) ? "unlock" : "lock"} />{" "}
-                    {flags.locked.has(note.id) ? "Unlock" : "Lock"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onArchive();
-                    }}
-                  >
-                    <Icon name="archive" /> {flags.archived.has(note.id) ? "Unarchive" : "Archive"}
-                  </button>
-                  <div className="sep" />
-                  <button
-                    className="danger"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onTrash();
-                    }}
-                  >
-                    <Icon name="trash" /> Move to Trash
-                  </button>
-                </>
-              )}
-            </div>
+        <Menu label="More actions" align="right" width={214} trigger={<Icon name="more" />}>
+          <MenuItem icon="search" onSelect={onSearch}>
+            Search
+          </MenuItem>
+          <MenuItem icon="stats" onSelect={onToggleInfo}>
+            Toggle Statistics
+          </MenuItem>
+          <MenuSep />
+          <MenuItem icon="export" onSelect={exportNote}>
+            Export…
+          </MenuItem>
+          <SubMenu icon="copy" label="Copy As">
+            <MenuItem onSelect={() => copy(draft.content)}>Markdown</MenuItem>
+            <MenuItem onSelect={() => copy(toPlainText(draft.content))}>Plain Text</MenuItem>
+            <MenuItem onSelect={() => copy(renderMarkdown(draft.content))}>HTML</MenuItem>
+          </SubMenu>
+          <MenuItem icon="link" onSelect={copyLink}>
+            Copy Link
+          </MenuItem>
+          <MenuSep />
+          {inTrash ? (
+            <>
+              <MenuItem icon="archive" onSelect={onRestore}>
+                Restore
+              </MenuItem>
+              <MenuItem icon="trash" danger onSelect={onDeleteForever}>
+                Delete Forever
+              </MenuItem>
+            </>
+          ) : (
+            <>
+              <MenuItem icon="pin" onSelect={onPin}>
+                {flags.pinned.has(note.id) ? "Unpin" : "Pin"}
+              </MenuItem>
+              <MenuItem icon={flags.locked.has(note.id) ? "unlock" : "lock"} onSelect={onLock}>
+                {flags.locked.has(note.id) ? "Unlock" : "Lock"}
+              </MenuItem>
+              <MenuItem icon="archive" onSelect={onArchive}>
+                {flags.archived.has(note.id) ? "Unarchive" : "Archive"}
+              </MenuItem>
+              <MenuItem icon="trash" danger onSelect={onTrash}>
+                Move to Trash
+              </MenuItem>
+            </>
           )}
-        </div>
+        </Menu>
       </div>
 
       <div className="editscroll">

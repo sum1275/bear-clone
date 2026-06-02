@@ -91,6 +91,28 @@ const PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   "x": <path d="M18 6 6 18M6 6l12 12" />,
+  "chevR": <path d="m9 18 6-6-6-6" />,
+  "chevD": <path d="m6 9 6 6 6-6" />,
+  "sort": <path d="m21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16" />,
+  "rows": (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M3 15h18" />
+    </>
+  ),
+  "export": (
+    <>
+      <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+      <path d="M16 6l-4-4-4 4M12 2v13" />
+    </>
+  ),
+  "link": (
+    <>
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </>
+  ),
+  "stats": <path d="M12 20V10M18 20V4M6 20v-4" />,
   // ---- tag category icons (auto-assigned by lib/tags.ts → tagIcon) ----
   "hash": (
     <>

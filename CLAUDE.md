@@ -49,16 +49,18 @@ Key modules:
 ```
 app/page.tsx          renders <NotesApp/>
 app/globals.css       theme tokens (4 themes) + .doc markdown styles + responsive shell
-components/NotesApp    "use client" orchestrator — owns all UI state + the .app shell
+components/NotesApp    "use client" orchestrator — owns all UI state (incl. sort/preview) + ⌥⌘ shortcuts
 components/Sidebar     library rows w/ counts, nested tag tree, theme picker
-components/NoteList    search, note cards, compose FAB
-components/Editor      Bear-style live editor (per-line render/raw) + formatting pill + more-menu
+components/NoteList    "Notes ⌄" library dropdown (sort/preview/export + shortcuts), search, cards, FAB
+components/Editor      Bear-style live editor (per-line render/raw) + formatting pill + ⋯ menu
+components/Menu        reusable dropdown primitive (Menu/MenuHeader/MenuItem/MenuSep/SubMenu)
 components/InfoPanel   Info (stats/dates/tags) + Outline (TOC) tabs
 components/icons       shared currentColor line-icon set
 lib/markdown.ts        escape-first markdown->HTML renderer + extractTags/noteStats/extractToc
 lib/segments.ts        splits content into editable blocks (line-level; groups code/table/ol/quote)
 lib/tags.ts            nested #tag tree w/ descendant counts + auto-assigned monochrome tag icons (tagIcon)
-lib/view.ts            filter model, ephemeral flag sets, list-derivation helpers
+lib/view.ts            filter model (incl. pinned), sortNotes, ephemeral flag sets, list-derivation helpers
+lib/download.ts        client-side text→file download (Export actions)
 hooks/useNotes.ts      fetch + create/edit/remove (each mutation re-fetches; returns saved note)
 ```
 

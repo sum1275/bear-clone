@@ -10,6 +10,7 @@ const LIBRARY: { type: FilterType; label: string; icon: IconName }[] = [
   { type: "todo", label: "To-Do", icon: "todo" },
   { type: "today", label: "Today", icon: "today" },
   { type: "locked", label: "Locked", icon: "lock" },
+  { type: "pinned", label: "Pinned", icon: "pin" },
   { type: "archive", label: "Archive", icon: "archive" },
   { type: "trash", label: "Trash", icon: "trash" },
 ];

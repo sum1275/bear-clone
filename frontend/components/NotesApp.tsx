@@ -6,11 +6,14 @@ import type { Note } from "@/lib/notes";
 import { buildTagTree } from "@/lib/tags";
 import {
   emptyFlags,
-  filterTitle,
   matchesFilter,
   matchesQuery,
+  sortNotes,
   type Filter,
+  type FilterType,
   type FlagSets,
+  type PreviewStyle,
+  type SortKey,
 } from "@/lib/view";
 import { Sidebar, type ThemeName } from "@/components/Sidebar";
 import { NoteList } from "@/components/NoteList";
@@ -18,7 +21,28 @@ import { Editor, type Draft } from "@/components/Editor";
 import { InfoPanel } from "@/components/InfoPanel";
 
 const THEME_KEY = "notes-theme";
-const LIBRARY_TYPES = ["all", "untagged", "todo", "today", "locked", "archive", "trash"] as const;
+const LIBRARY_TYPES = [
+  "all",
+  "untagged",
+  "todo",
+  "today",
+  "locked",
+  "pinned",
+  "archive",
+  "trash",
+] as const;
+
+// ⌥⌘<digit> → library filter (shown as hints in the "Notes ⌄" menu).
+const SHORTCUTS: Record<string, FilterType> = {
+  "1": "all",
+  "2": "untagged",
+  "3": "todo",
+  "4": "today",
+  "5": "locked",
+  "6": "pinned",
+  "9": "archive",
+  "0": "trash",
+};
 
 export default function NotesApp() {
   const { notes, create, edit, remove } = useNotes();
@@ -32,6 +56,9 @@ export default function NotesApp() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   const [flags, setFlags] = useState<FlagSets>(emptyFlags);
+  const [sort, setSort] = useState<SortKey>("modified");
+  const [preview, setPreview] = useState<PreviewStyle>("multi");
+  const searchRef = useRef<HTMLInputElement>(null);
   // Side-panel collapse level (wide layout): 0 = sidebar + list shown,
   // 1 = sidebar slid out, 2 = sidebar + list slid out (editor full width).
   const [collapsed, setCollapsed] = useState(0);
@@ -113,6 +140,21 @@ export default function NotesApp() {
     return () => window.removeEventListener("wheel", onWheel);
   }, []);
 
+  // ⌥⌘<digit> jumps to a library (matches the hints in the "Notes ⌄" menu).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.metaKey || !e.altKey) return;
+      const type = SHORTCUTS[e.key];
+      if (!type) return;
+      e.preventDefault();
+      setFilter({ type });
+      setMobileView("list");
+      setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
     [notes, selectedId],
@@ -130,14 +172,12 @@ export default function NotesApp() {
 
   const visibleNotes = useMemo(
     () =>
-      notes
-        .filter((n) => matchesFilter(n, filter, flags) && matchesQuery(n, query))
-        .sort((a, b) => {
-          const pinDiff = (flags.pinned.has(b.id) ? 1 : 0) - (flags.pinned.has(a.id) ? 1 : 0);
-          if (pinDiff !== 0) return pinDiff;
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-        }),
-    [notes, filter, flags, query],
+      sortNotes(
+        notes.filter((n) => matchesFilter(n, filter, flags) && matchesQuery(n, query)),
+        sort,
+        flags,
+      ),
+    [notes, filter, flags, query, sort],
   );
 
   // Auto-select the first visible note once data arrives (wide-screen comfort).
@@ -258,11 +298,17 @@ export default function NotesApp() {
       />
 
       <NoteList
-        title={filterTitle(filter)}
         notes={visibleNotes}
         selectedId={selectedId}
         flags={flags}
         query={query}
+        filter={filter}
+        onFilter={onFilter}
+        sort={sort}
+        onSort={setSort}
+        preview={preview}
+        onPreview={setPreview}
+        searchRef={searchRef}
         onQuery={setQuery}
         onSelect={openNote}
         onCompose={compose}
@@ -277,6 +323,13 @@ export default function NotesApp() {
         onChange={onChange}
         onBack={() => setMobileView("list")}
         onToggleInfo={() => setInfoOpen((v) => !v)}
+        onSearch={() => {
+          setMobileView("list");
+          // Focus now (wide layout) and again after layout settles (narrow,
+          // where switching to the list view re-mounts the search field).
+          searchRef.current?.focus();
+          requestAnimationFrame(() => searchRef.current?.focus());
+        }}
         onPin={() => selectedNote && toggleFlag("pinned", selectedNote.id)}
         onLock={() => selectedNote && toggleFlag("locked", selectedNote.id)}
         onArchive={() => selectedNote && toggleFlag("archived", selectedNote.id)}
