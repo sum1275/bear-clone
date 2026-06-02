@@ -24,21 +24,27 @@ export function useNotes() {
     loadNotes();
   }, [loadNotes]);
 
-  // Each mutation re-fetches so the UI always reflects backend state.
+  // Each mutation re-fetches so the UI always reflects backend state, and the
+  // result is returned so callers can react to it (e.g. select a new note).
   const run = useCallback(
-    async (fn: () => Promise<unknown>) => {
+    async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
       try {
-        await fn();
+        const result = await fn();
         await loadNotes();
+        return result;
       } catch (err) {
         setError((err as Error).message);
+        return undefined;
       }
     },
     [loadNotes],
   );
 
   const create = useCallback((note: NoteCreate) => run(() => api.createNote(note)), [run]);
-  const edit = useCallback((id: number, note: NoteCreate) => run(() => api.updateNote(id, note)), [run]);
+  const edit = useCallback(
+    (id: number, note: NoteCreate) => run(() => api.updateNote(id, note)),
+    [run],
+  );
   const remove = useCallback((id: number) => run(() => api.deleteNote(id)), [run]);
 
   return { notes, loading, error, create, edit, remove };
