@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "types:generate": "openapi-typescript http://127.0.0.1:8000/openapi.json -o lib/api.d.ts || (echo 'Failed to generate types. Is the backend running at http://127.0.0.1:8000?' && exit 1)"
-
   },
   "dependencies": {
     "next": "16.2.6",
@@ -24,6 +24,7 @@
     "eslint-config-next": "16.2.6",
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

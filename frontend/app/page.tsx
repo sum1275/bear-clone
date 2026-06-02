@@ -1,13 +1,5 @@
-"use client"
-
-import type {components} from "../lib/api"
-type Note = components["schemas"]["Note"]
+import NotesApp from "@/components/NotesApp";
 
 export default function Home() {
-  
-  return (
-    <div>
-      
-    </div>
-  );
+  return <NotesApp />;
 }
