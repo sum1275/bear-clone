@@ -24,7 +24,7 @@ export interface Filter {
 
 // Note-list ordering and card density — set from the "Notes ⌄" library menu.
 export type SortKey = "modified" | "created" | "title";
-export type PreviewStyle = "title" | "one" | "multi";
+export type PreviewStyle = "small" | "medium" | "large";
 
 // Ephemeral per-note flags. Membership = flag is on.
 export interface FlagSets {

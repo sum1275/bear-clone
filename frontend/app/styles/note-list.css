@@ -42,6 +42,7 @@
 .fab svg { width: 26px; height: 26px; }
 
 /* preview density (set from the Preview Style submenu) */
-.listscroll[data-preview="title"] .ms,
-.listscroll[data-preview="title"] .chips { display: none; }
-.listscroll[data-preview="one"] .ms { -webkit-line-clamp: 1; }
+.listscroll[data-preview="small"] .ms,
+.listscroll[data-preview="small"] .chips { display: none; }
+.listscroll[data-preview="medium"] .chips { display: none; }
+.listscroll[data-preview="medium"] .ms { -webkit-line-clamp: 2; }

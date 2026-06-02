@@ -47,9 +47,9 @@ const SORTS: { key: SortKey; label: string }[] = [
 ];
 
 const PREVIEWS: { key: PreviewStyle; label: string }[] = [
-  { key: "title", label: "Title Only" },
-  { key: "one", label: "Single Line" },
-  { key: "multi", label: "Multiple Lines" },
+  { key: "small", label: "Small" },
+  { key: "medium", label: "Medium" },
+  { key: "large", label: "Large" },
 ];
 
 export function NoteList({
