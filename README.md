@@ -1,6 +1,41 @@
 # bear-clone
 
-A Bear notes app clone — markdown note-taking app.
+A [Bear](https://bear.app)-style markdown note-taking app. Write notes in
+Markdown, organize them with `#tags`, and browse them in a responsive
+three-pane layout that collapses to a single column on phones.
+
+## Features
+
+- **Markdown editor** — toggle between rendered Markdown and a raw textarea,
+  with a formatting pill and more-menu.
+- **Bear-style layout** — three panes on desktop (sidebar / note list /
+  editor + info panel) that collapse to one column below 860px.
+- **Tags** — derived client-side from `#hashtags` in note content, rendered as
+  a nested tag tree with descendant counts and deterministic per-tag colors.
+- **Smart lists** — Untagged, To-Do, and Today, derived on the fly.
+- **Info panel** — note stats, dates, tags, and a generated outline (TOC).
+- **Theming** — four themes, persisted to `localStorage`.
+- **Full CRUD** — compose, edit, and delete notes against the FastAPI backend.
+
+> Pin, lock, and archive are session-only UI state. Tags, stats, TOC, and smart
+> lists are derived on the client and are not yet persisted server-side.
+
+## Tech stack
+
+- **Backend** — Python / FastAPI with SQLite via `aiosqlite`. Schema is created
+  on first run; there is no migrations library.
+- **Frontend** — Next.js (16.x) with TypeScript. API types are generated from
+  the backend's OpenAPI schema.
+
+## Project structure
+
+```
+backend/   FastAPI + aiosqlite REST API (notes CRUD)
+frontend/  Next.js app — Bear-style responsive UI
+```
+
+See [CLAUDE.md](CLAUDE.md) for an architectural overview of the frontend
+modules and [backend/API.md](backend/API.md) for the API reference.
 
 ## Prerequisites
 

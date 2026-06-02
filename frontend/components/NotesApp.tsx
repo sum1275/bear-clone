@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotes } from "@/hooks/useNotes";
 import type { Note } from "@/lib/notes";
 import { buildTagTree } from "@/lib/tags";
@@ -26,7 +26,6 @@ export default function NotesApp() {
   const [theme, setTheme] = useState<ThemeName>("light");
   const [filter, setFilter] = useState<Filter>({ type: "all" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>({ title: "", content: "" });
   const [query, setQuery] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -148,20 +147,47 @@ export default function NotesApp() {
     }
   }, [selectedId, visibleNotes]);
 
-  // Keep the draft mirroring the selected note unless we're actively editing.
-  // updated_at in deps re-syncs the rendered view right after a save.
+  // Reset the editing buffer when we switch to a different note. We deliberately
+  // do NOT re-sync on updated_at: the live editor always holds the freshest
+  // text, and re-syncing after our own autosave would clobber in-flight typing.
   useEffect(() => {
-    if (selectedNote && !editing) {
-      setDraft({ title: selectedNote.title, content: selectedNote.content });
-    }
-  }, [selectedNote?.id, selectedNote?.updated_at, editing, selectedNote]);
+    if (selectedNote) setDraft({ title: selectedNote.title, content: selectedNote.content });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNote?.id]);
 
-  const openNote = useCallback((note: Note) => {
-    setSelectedId(note.id);
-    setEditing(false);
-    setDraft({ title: note.title, content: note.content });
-    setMobileView("editor");
-  }, []);
+  // Latest draft / note kept in refs so save() can flush without being rebuilt.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const selectedRef = useRef(selectedNote);
+  selectedRef.current = selectedNote;
+
+  // Persist the current draft if it differs from the stored note. The no-op
+  // guard means moving the caret around (no text change) never hits the API.
+  const save = useCallback(async () => {
+    const n = selectedRef.current;
+    const d = draftRef.current;
+    if (!n) return;
+    if (d.title === n.title && d.content === n.content) return;
+    await edit(n.id, { title: d.title, content: d.content });
+  }, [edit]);
+
+  // Debounced autosave — there is no "Done" button anymore, so we persist a
+  // short moment after the user stops typing.
+  useEffect(() => {
+    if (!selectedNote) return;
+    if (draft.title === selectedNote.title && draft.content === selectedNote.content) return;
+    const t = setTimeout(() => void save(), 700);
+    return () => clearTimeout(t);
+  }, [draft, selectedNote, save]);
+
+  const openNote = useCallback(
+    (note: Note) => {
+      void save(); // flush pending edits on the note we're leaving
+      setSelectedId(note.id);
+      setMobileView("editor");
+    },
+    [save],
+  );
 
   const onFilter = useCallback((f: Filter) => {
     setFilter(f);
@@ -173,30 +199,16 @@ export default function NotesApp() {
     setDraft((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const startEdit = useCallback(() => {
-    if (selectedNote) {
-      setDraft({ title: selectedNote.title, content: selectedNote.content });
-      setEditing(true);
-    }
-  }, [selectedNote]);
-
-  const saveDraft = useCallback(async () => {
-    if (!selectedNote) return;
-    await edit(selectedNote.id, { title: draft.title, content: draft.content });
-    setEditing(false);
-  }, [edit, selectedNote, draft]);
-
   const compose = useCallback(async () => {
+    void save();
     const created = await create({ title: "New Note", content: "" });
     if (created) {
       setFilter({ type: "all" });
       setSelectedId(created.id);
-      setDraft({ title: created.title, content: created.content });
-      setEditing(true);
       setMobileView("editor");
       setDrawerOpen(false);
     }
-  }, [create]);
+  }, [create, save]);
 
   const toggleFlag = useCallback((key: keyof FlagSets, id: number) => {
     setFlags((prev) => {
@@ -216,7 +228,6 @@ export default function NotesApp() {
         return { ...prev, trashed };
       });
       setSelectedId(null);
-      setEditing(false);
     },
     [remove],
   );
@@ -260,13 +271,10 @@ export default function NotesApp() {
 
       <Editor
         note={selectedNote}
-        editing={editing}
         draft={draft}
         flags={flags}
         inTrash={inTrash}
         onChange={onChange}
-        onStartEdit={startEdit}
-        onSave={saveDraft}
         onBack={() => setMobileView("list")}
         onToggleInfo={() => setInfoOpen((v) => !v)}
         onPin={() => selectedNote && toggleFlag("pinned", selectedNote.id)}
