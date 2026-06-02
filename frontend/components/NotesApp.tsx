@@ -75,7 +75,16 @@ export default function NotesApp() {
   // ---- two-finger horizontal swipe collapses/expands the side panels ----
   // Swipe left (fingers left) steps panels closed from the left edge; swipe
   // right reopens them one at a time. Wide layout only. One physical swipe =
-  // one step: after a step we "lock" until an idle gap separates the next.
+  // one step.
+  //
+  // The tricky part is separating swipes: a trackpad keeps firing *inertial*
+  // (momentum) wheel events for up to ~1s after the finger lifts, so we can't
+  // just wait for an idle gap to re-arm — that gap never comes between two
+  // quick swipes, and the second swipe gets swallowed. Instead, after a step we
+  // stay locked through the momentum tail (whose |deltaX| only ever decays) and
+  // re-arm the instant that tail dies out (QUIET) or a fresh flick appears (a
+  // sharp rising edge in |deltaX|). That lets you collapse/expand both panels
+  // in quick succession.
   //
   // The listener is PASSIVE on purpose: a non-passive wheel listener forces the
   // browser to run JS before every scroll frame and disables off-thread
@@ -85,9 +94,12 @@ export default function NotesApp() {
   useEffect(() => {
     let acc = 0;
     let lastT = 0;
+    let prevAbs = 0;
     let locked = false;
     const STEP = 60; // accumulated |deltaX| px to trigger one step
-    const IDLE = 160; // ms gap that ends a gesture
+    const IDLE = 140; // ms with no wheel events at all → gesture ended
+    const QUIET = 4; // |deltaX| at/below this ≈ the momentum tail has died out
+    const REARM = 1.6; // |deltaX| jumping this far above the tail = a new flick
     // Cache the media query once instead of allocating a MediaQueryList per event.
     const wide = window.matchMedia("(min-width: 861px)");
 
@@ -116,11 +128,25 @@ export default function NotesApp() {
       if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
 
       const now = Date.now();
+      const abs = Math.abs(e.deltaX);
+
+      // A genuine pause (no events at all for IDLE ms) ends the gesture.
       if (now - lastT > IDLE) {
-        locked = false; // a new gesture started
+        locked = false;
         acc = 0;
+        prevAbs = 0;
       }
       lastT = now;
+
+      // While locked (riding out the previous swipe's momentum), re-arm only
+      // when that tail has gone quiet or the user clearly started a new flick —
+      // never while |deltaX| is still high and decaying, so one swipe can't
+      // double-step.
+      if (locked && (abs <= QUIET || (abs > 12 && abs > prevAbs * REARM))) {
+        locked = false;
+        acc = 0;
+      }
+      prevAbs = abs;
       if (locked) return;
 
       acc += e.deltaX;
