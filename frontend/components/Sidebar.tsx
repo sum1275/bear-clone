@@ -30,8 +30,9 @@ interface SidebarProps {
   onTheme: (t: ThemeName) => void;
 }
 
-// One tag row plus its children (recursive). `.srow.child` sets the base indent
-// (30px); each nesting level adds 16px so the hierarchy reads visually.
+// One tag row plus its children (recursive). Top-level tags align with the
+// library rows; each nesting level adds 18px of left padding so the hierarchy
+// reads visually.
 function TagRows({
   nodes,
   filter,
@@ -51,10 +52,10 @@ function TagRows({
           <div key={node.name}>
             <button
               className={`srow child${sel ? " sel" : ""}`}
-              style={depth > 0 ? { paddingLeft: 30 + depth * 16 } : undefined}
+              style={depth > 0 ? { paddingLeft: 10 + depth * 18 } : undefined}
               onClick={() => onFilter({ type: "tag", tag: node.name })}
             >
-              <span className="tagdot" style={{ background: node.color }} />
+              <Icon name={node.icon} />
               {node.label}
               <span className="count">{node.count}</span>
             </button>

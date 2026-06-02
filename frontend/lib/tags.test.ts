@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildTagTree, tagColor } from "@/lib/tags";
+import { buildTagTree, tagIcon } from "@/lib/tags";
 import type { Note } from "@/lib/notes";
 
 function note(id: number, content: string): Note {
@@ -12,12 +12,21 @@ function note(id: number, content: string): Note {
   };
 }
 
-describe("tagColor", () => {
+describe("tagIcon", () => {
   it("is deterministic", () => {
-    expect(tagColor("bear")).toBe(tagColor("bear"));
+    expect(tagIcon("bear")).toBe(tagIcon("bear"));
   });
-  it("returns a palette hex", () => {
-    expect(tagColor("bear")).toMatch(/^#[0-9a-f]{6}$/i);
+  it("maps known keywords to intelligent icons", () => {
+    expect(tagIcon("travel")).toBe("plane");
+    expect(tagIcon("writing")).toBe("feather");
+    expect(tagIcon("visa")).toBe("id");
+    expect(tagIcon("workshop")).toBe("briefcase");
+  });
+  it("matches case-insensitively and on substrings", () => {
+    expect(tagIcon("Travelling")).toBe("plane");
+  });
+  it("falls back to a neutral hash for unknown tags", () => {
+    expect(tagIcon("qwerty")).toBe("hash");
   });
 });
 

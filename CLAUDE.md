@@ -52,11 +52,12 @@ app/globals.css       theme tokens (4 themes) + .doc markdown styles + responsiv
 components/NotesApp    "use client" orchestrator — owns all UI state + the .app shell
 components/Sidebar     library rows w/ counts, nested tag tree, theme picker
 components/NoteList    search, note cards, compose FAB
-components/Editor      rendered-markdown <-> raw-textarea toggle, formatting pill, more-menu
+components/Editor      Bear-style live editor (per-line render/raw) + formatting pill + more-menu
 components/InfoPanel   Info (stats/dates/tags) + Outline (TOC) tabs
 components/icons       shared currentColor line-icon set
 lib/markdown.ts        escape-first markdown->HTML renderer + extractTags/noteStats/extractToc
-lib/tags.ts            nested #tag tree w/ descendant counts + deterministic tag colors
+lib/segments.ts        splits content into editable blocks (line-level; groups code/table/ol/quote)
+lib/tags.ts            nested #tag tree w/ descendant counts + auto-assigned monochrome tag icons (tagIcon)
 lib/view.ts            filter model, ephemeral flag sets, list-derivation helpers
 hooks/useNotes.ts      fetch + create/edit/remove (each mutation re-fetches; returns saved note)
 ```

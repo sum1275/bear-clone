@@ -1,32 +1,54 @@
 import type { Note } from "@/lib/notes";
 import { extractTags } from "@/lib/markdown";
+import type { IconName } from "@/components/icons";
 
-// Palette taken from the design prototype's tag dots.
-const TAG_PALETTE = [
-  "#e2493d", // red
-  "#5b8def", // blue
-  "#7d8cff", // indigo
-  "#14a06a", // green
-  "#c97f2f", // amber
-  "#c2552f", // rust
-  "#8a5bef", // violet
-  "#2f9ec9", // cyan
+// Bear assigns each tag a monochrome icon based on its name (no colors). We do
+// the same with a keyword map: the first rule whose pattern matches the tag
+// wins; anything unmatched falls back to a neutral hash. Matching is done on
+// the whole lowercased path so "work/visa" still resolves "visa".
+const TAG_ICON_RULES: [RegExp, IconName][] = [
+  [/travel|trip|flight|vacation|holiday|tour|journey/, "plane"],
+  [/visa|passport|immigration|id\b|licen[sc]e/, "id"],
+  [/work|workshop|job|office|career|client|biz|business|meeting/, "briefcase"],
+  [/writ|blog|journal|essay|draft|poem|story|novel/, "feather"],
+  [/read|book|reading|library|study|school|learn|course|class|lecture/, "book"],
+  [/code|coding|dev|program|software|engineer|tech|api|bug/, "code"],
+  [/idea|brainstorm|think|concept|inspiration/, "bulb"],
+  [/money|finance|budget|expense|invoice|tax|bank|salary|invest/, "money"],
+  [/gym|fitness|workout|exercise|run|train|sport/, "dumbbell"],
+  [/health|medical|doctor|clinic|wellness|therapy/, "heart"],
+  [/love|relationship|family|friend|date/, "heart"],
+  [/food|recipe|cook|meal|eat|kitchen|coffee|cafe|restaurant/, "coffee"],
+  [/music|song|playlist|album|band|guitar/, "music"],
+  [/photo|camera|picture|image|shot/, "camera"],
+  [/film|movie|video|cinema|watch|series|show/, "film"],
+  [/home|house|apartment|rent|chore/, "home"],
+  [/shop|buy|purchase|store|cart|grocery|wishlist/, "cart"],
+  [/science|research|lab|wildlife|nature|animal|bear|plant|garden|eco/, "leaf"],
+  [/game|gaming|play|hobby/, "game"],
+  [/mail|email|message|inbox|newsletter/, "mail"],
+  [/map|location|place|geo|city|direction/, "map"],
+  [/world|global|earth|country|language|culture/, "globe"],
+  [/star|favorite|favourite|important|priority|highlight/, "star"],
+  [/flag|goal|milestone|target/, "flag"],
+  [/project|folder|archive|collection/, "folder"],
 ];
 
-// Deterministic color for a tag name — same name always maps to the same swatch.
-export function tagColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+// Deterministic monochrome icon for a tag name — same name always maps to the
+// same glyph. Bear-style: intelligent keyword match, neutral hash otherwise.
+export function tagIcon(name: string): IconName {
+  const key = name.toLowerCase();
+  for (const [pattern, icon] of TAG_ICON_RULES) {
+    if (pattern.test(key)) return icon;
   }
-  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
+  return "hash";
 }
 
 export interface TagNode {
   name: string; // full path, e.g. "science/wildlife"
   label: string; // last path segment, shown in the sidebar row
   count: number; // distinct notes under this tag (descendants included)
-  color: string;
+  icon: IconName; // auto-assigned monochrome icon
   children: TagNode[];
 }
 
@@ -60,11 +82,12 @@ export function buildTagTree(notes: Note[]): TagNode[] {
   // Create a node for every path...
   const nodes = new Map<string, TagNode>();
   for (const [path, ids] of counts) {
+    const label = path.slice(path.lastIndexOf("/") + 1);
     nodes.set(path, {
       name: path,
-      label: path.slice(path.lastIndexOf("/") + 1),
+      label,
       count: ids.size,
-      color: tagColor(path),
+      icon: tagIcon(label), // match the most specific segment, e.g. work/visa → visa
       children: [],
     });
   }

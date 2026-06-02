@@ -28,10 +28,13 @@ button { font-family: inherit; cursor: pointer; }
    THEME TOKENS  (data-theme on the .app root) — verbatim from prototype
    ===================================================================== */
 [data-theme] {
-  --accent-link: var(--accent);
-  --hl: #ffe27a;                  /* text highlight */
-  --caret: #f2a83a;               /* editing caret */
-  --spell: #f06a6a;               /* spellcheck underline */
+  /* Monochrome UI: --accent is a neutral gray (set per theme to --text-2), so
+     no chrome carries a hue. Only user-authored content (==highlight==) keeps
+     a tint via --hl. */
+  --accent-link: var(--text);
+  --hl: #ffe27a;                  /* text highlight (user content) */
+  --caret: var(--text);           /* editing caret — ink, not orange */
+  --spell: var(--text-3);         /* spellcheck underline — neutral */
   /* code block keeps a dark surface across all themes */
   --code-bg: #282b33;
   --code-text: #cdd3de;
@@ -43,7 +46,7 @@ button { font-family: inherit; cursor: pointer; }
 [data-theme="light"] {
   --bg: #f1f0ed; --panel: #fbfbf9; --surface: #ffffff;
   --text: #2b2a28; --text-2: #6c6b66; --text-3: #a3a19b;
-  --accent: #e2493d; --border: #ececea; --chip-bg: #efeeec;
+  --accent: #6c6b66; --border: #ececea; --chip-bg: #efeeec;
   --sidebar-bg: #2c2b29; --sidebar-text: #cdcbc4; --sidebar-dim: #8a877f;
   --quote-bar: #e0dfdb; --rule: #e7e6e3; --shadow: 0 18px 50px rgba(0,0,0,.13);
 }
@@ -51,7 +54,7 @@ button { font-family: inherit; cursor: pointer; }
 [data-theme="dark"] {
   --bg: #161618; --panel: #1f1f22; --surface: #1a1a1c;
   --text: #e8e7e3; --text-2: #a2a09a; --text-3: #6d6c69;
-  --accent: #ff6b5e; --border: #2c2c30; --chip-bg: #2a2a2e;
+  --accent: #a2a09a; --border: #2c2c30; --chip-bg: #2a2a2e;
   --sidebar-bg: #101011; --sidebar-text: #c7c6c1; --sidebar-dim: #76746f;
   --quote-bar: #34343a; --rule: #2a2a2e; --shadow: 0 18px 50px rgba(0,0,0,.5);
   --hl: #6a5a1f;
@@ -60,7 +63,7 @@ button { font-family: inherit; cursor: pointer; }
 [data-theme="sepia"] {
   --bg: #efe6d2; --panel: #f6efe0; --surface: #fbf6ea;
   --text: #463c2c; --text-2: #7b6e57; --text-3: #a99b80;
-  --accent: #c2552f; --border: #e4d9c0; --chip-bg: #ece2cd;
+  --accent: #7b6e57; --border: #e4d9c0; --chip-bg: #ece2cd;
   --sidebar-bg: #383123; --sidebar-text: #d6cdb6; --sidebar-dim: #998f76;
   --quote-bar: #e0d4ba; --rule: #e6dcc4; --shadow: 0 18px 50px rgba(80,60,20,.22);
   --hl: #ffd98a;
@@ -69,10 +72,10 @@ button { font-family: inherit; cursor: pointer; }
 [data-theme="midnight"] {
   --bg: #13141d; --panel: #1b1d29; --surface: #161722;
   --text: #e4e5f2; --text-2: #9a9cb6; --text-3: #5f617c;
-  --accent: #7d8cff; --border: #282a3c; --chip-bg: #242639;
+  --accent: #9a9cb6; --border: #282a3c; --chip-bg: #242639;
   --sidebar-bg: #0e0f18; --sidebar-text: #c9cae0; --sidebar-dim: #70728e;
   --quote-bar: #2c2f44; --rule: #262838; --shadow: 0 18px 50px rgba(0,0,0,.55);
-  --hl: #3a3a66; --caret: #7d8cff;
+  --hl: #3a3a66;
 }
 
 /* =====================================================================
@@ -141,12 +144,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .srow svg { width: 17px; height: 17px; opacity: .82; flex: 0 0 auto; }
 .srow .count { margin-left: auto; font-size: 12px; color: var(--sidebar-dim); }
-.srow.sel { background: var(--accent); color: #fff; }
+.srow.sel { background: rgba(255,255,255,.12); color: #fff; }
 .srow.sel .count { color: rgba(255,255,255,.85); }
 .srow.sel svg { opacity: 1; }
-.srow.child { padding-left: 30px; font-size: 14px; color: color-mix(in srgb, var(--sidebar-text) 80%, transparent); }
+.srow.child { font-size: 14px; color: color-mix(in srgb, var(--sidebar-text) 80%, transparent); }
 .srow .tw { width: 11px; font-size: 10px; color: var(--sidebar-dim); }
-.tagdot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
 
 /* theme switcher (lives at the bottom of the sidebar) */
 .themepick {
@@ -159,10 +161,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .themedot.on { border-color: var(--sidebar-text); }
 .themedot::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--sw, #888); }
-.tdot-light { --sw: linear-gradient(135deg,#ffffff 50%,#e2493d 50%); }
-.tdot-dark  { --sw: linear-gradient(135deg,#1a1a1c 50%,#ff6b5e 50%); }
-.tdot-sepia { --sw: linear-gradient(135deg,#fbf6ea 50%,#c2552f 50%); }
-.tdot-midnight { --sw: linear-gradient(135deg,#161722 50%,#7d8cff 50%); }
+/* monochrome swatches: each theme's paper tone split with its ink tone */
+.tdot-light { --sw: linear-gradient(135deg,#ffffff 50%,#2b2a28 50%); }
+.tdot-dark  { --sw: linear-gradient(135deg,#1a1a1c 50%,#e8e7e3 50%); }
+.tdot-sepia { --sw: linear-gradient(135deg,#fbf6ea 50%,#463c2c 50%); }
+.tdot-midnight { --sw: linear-gradient(135deg,#161722 50%,#e4e5f2 50%); }
 
 /* =====================================================================
    NOTE LIST (middle pane)
@@ -180,8 +183,8 @@ button { font-family: inherit; cursor: pointer; }
 .listscroll { flex: 1; overflow-y: auto; }
 .mcard { padding: 13px 18px; border-bottom: 1px solid var(--rule); cursor: pointer; position: relative; }
 .mcard.sel { background: var(--surface); }
-.mcard.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
-.mcard.pinned { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.mcard.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--text-3); }
+.mcard.pinned { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .mcard .mt { font-weight: 600; font-size: 15px; color: var(--text); }
 .mcard .ms {
   font-size: 13px; color: var(--text-2); margin-top: 3px; line-height: 1.45;
@@ -202,8 +205,8 @@ button { font-family: inherit; cursor: pointer; }
 /* floating action button (compose) — phone only */
 .fab {
   position: absolute; right: 20px; bottom: 24px; width: 56px; height: 56px; border-radius: 18px;
-  background: var(--accent); color: #fff; border: 0; display: none; place-items: center;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 45%, transparent); z-index: 6;
+  background: var(--text); color: var(--panel); border: 0; display: none; place-items: center;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25); z-index: 6;
 }
 .fab svg { width: 26px; height: 26px; }
 
@@ -239,9 +242,9 @@ button { font-family: inherit; cursor: pointer; }
 /* the one raw line under the caret */
 .liveinput {
   display: block; width: 100%; border: 0; outline: none; resize: none; overflow: hidden;
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  box-shadow: -8px 0 0 color-mix(in srgb, var(--accent) 7%, transparent),
-               8px 0 0 color-mix(in srgb, var(--accent) 7%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  box-shadow: -8px 0 0 color-mix(in srgb, var(--text) 6%, transparent),
+               8px 0 0 color-mix(in srgb, var(--text) 6%, transparent);
   border-radius: 4px; color: var(--text); font-family: var(--font-rubik);
   font-size: 17.5px; line-height: 1.65; padding: 0; margin: 11px 0; caret-color: var(--caret);
 }
@@ -278,7 +281,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .menu button:hover { background: var(--chip-bg); }
 .menu button svg { width: 17px; height: 17px; opacity: .8; }
-.menu button.danger { color: var(--accent); }
+.menu button.danger { color: var(--text); }
 .menu .sep { height: 1px; background: var(--rule); margin: 5px 4px; }
 
 /* =====================================================================
@@ -287,7 +290,7 @@ button { font-family: inherit; cursor: pointer; }
 .ihead { padding: 16px 18px 4px; }
 .tabs { display: flex; gap: 6px; padding: 10px 16px 4px; }
 .tabs button { flex: 1; border: 0; background: transparent; color: var(--text-2); font-size: 14px; font-weight: 600; padding: 9px 0; border-radius: 10px; }
-.tabs button.on { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+.tabs button.on { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 .tabpane { padding: 8px 20px; overflow-y: auto; }
 .statrow { display: flex; justify-content: space-between; padding: 11px 2px; border-bottom: 1px solid var(--rule); font-size: 15px; }
 .statrow b { font-weight: 600; }
@@ -352,8 +355,8 @@ button { font-family: inherit; cursor: pointer; }
 /* checklist / todo */
 .doc .todo { display: flex; align-items: flex-start; gap: 11px; padding: 5px 0; font-size: 16px; line-height: 1.5; }
 .doc .todo .box { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--text-3); flex: 0 0 auto; margin-top: 1px; position: relative; }
-.doc .todo.done .box { background: var(--accent); border-color: var(--accent); }
-.doc .todo.done .box::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.doc .todo.done .box { background: var(--text); border-color: var(--text); }
+.doc .todo.done .box::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--panel); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .doc .todo.done .txt { color: var(--text-3); text-decoration: line-through; }
 
 /* lists */
@@ -370,7 +373,7 @@ button { font-family: inherit; cursor: pointer; }
 .doc td .ext { display: inline-flex; align-items: center; gap: 4px; }
 
 /* quote + divider */
-.doc blockquote { margin: 16px 0; padding: 4px 0 4px 16px; border-left: 3px solid var(--accent); color: var(--text-2); font-style: italic; font-size: 16px; }
+.doc blockquote { margin: 16px 0; padding: 4px 0 4px 16px; border-left: 3px solid var(--quote-bar); color: var(--text-2); font-style: italic; font-size: 16px; }
 .doc hr { border: 0; border-top: 1px solid var(--rule); margin: 24px 0; }
 .doc .dotrule { text-align: center; color: var(--text-3); letter-spacing: 6px; margin: 20px 0; }
 

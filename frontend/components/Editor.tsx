@@ -55,10 +55,11 @@ export function Editor({
   const readOnly = inTrash;
   const lines = draft.content.replace(/\r\n/g, "\n").split("\n");
 
-  // Reset to fully-rendered whenever we switch notes; auto-open an empty new
-  // note so the caret is ready to type.
+  // Reset to fully-rendered whenever we switch notes; auto-open a genuinely
+  // empty note (e.g. just composed) so the caret is ready to type. We key off
+  // the persisted note content, not the draft, which may not have synced yet.
   useEffect(() => {
-    if (note && draft.content.trim() === "" && !readOnly) {
+    if (note && note.content.trim() === "" && !readOnly) {
       setActive({ start: 0, end: 0 });
       pendingCaret.current = "end";
     } else {
@@ -83,7 +84,10 @@ export function Editor({
   useEffect(() => {
     if (!active) return;
     const onDocDown = (e: MouseEvent) => {
-      if (liveRef.current && !liveRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // The formatting toolbar sits outside the live area but must not blur it.
+      if (target instanceof Element && target.closest(".edtoolbar")) return;
+      if (liveRef.current && !liveRef.current.contains(target)) {
         setActive(null);
       }
     };
@@ -323,7 +327,9 @@ export function Editor({
 
       {!readOnly && (
         <div className="edtoolbar">
-          <div className="fmtpill">
+          {/* preventDefault keeps the active textarea's focus + selection so the
+              formatting buttons can act on it */}
+          <div className="fmtpill" onMouseDown={(e) => e.preventDefault()}>
             <button onClick={() => prefixLine("# ")}>H</button>
             <span className="sep" />
             <button onClick={() => wrap("**")}>B</button>
