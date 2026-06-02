@@ -1,0 +1,39 @@
+/* Dropdown menus — the shared <Menu> primitive used by the "Notes ⌄" library
+   switcher (NoteList) and the editor "⋯" more-menu (Editor). */
+
+.menuwrap { position: relative; display: inline-flex; }
+.menu {
+  position: absolute; right: 0; top: 28px; z-index: 30; min-width: 180px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0;
+  background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 9px 10px; border-radius: 8px;
+}
+.menu button:hover { background: var(--chip-bg); }
+.menu button svg { width: 17px; height: 17px; opacity: .8; }
+.menu button.danger { color: var(--text); }
+.menu .sep { height: 1px; background: var(--rule); margin: 5px 4px; }
+
+/* ---- shared Menu primitive (library switcher + editor more-menu) ---- */
+.menutrigger {
+  border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; padding: 0;
+}
+/* note-list "Notes ⌄" trigger sits where the old title was */
+.listtop .menuwrap { margin-right: auto; min-width: 0; }
+.libpick { color: var(--text); gap: 6px; max-width: 100%; }
+.libpick .t { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.libpick .lchev { width: 15px; height: 15px; opacity: .5; flex: 0 0 auto; }
+.menu.menu-l { right: auto; left: 0; }
+.mhead { font-size: 12px; color: var(--text-3); font-weight: 600; padding: 4px 10px 8px; }
+.menu button .mlabel { flex: 1; white-space: nowrap; }
+.menu button.cur .mlabel { font-weight: 700; }
+.menu button .mkbd { color: var(--text-3); font-size: 12px; letter-spacing: 1.5px; padding-left: 16px; }
+.menu button .mi-gap { width: 17px; flex: 0 0 auto; }
+.menu button .mcheck { width: 15px; height: 15px; opacity: 1; }
+.menu button .mchev { margin-left: auto; width: 15px; height: 15px; opacity: .55; transition: transform .15s ease; }
+.msub.open > button .mchev { transform: rotate(90deg); }
+.msubpanel { margin: 2px 0 4px 17px; padding-left: 10px; border-left: 1px solid var(--rule); }
+.menu button:disabled { color: var(--text-3); cursor: default; }
+.menu button:disabled:hover { background: transparent; }

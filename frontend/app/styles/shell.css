@@ -1,0 +1,31 @@
+/* App shell — the wide three/four-pane flex row and the responsive helpers.
+   Collapse + phone-layout media queries live in responsive.css (imported last). */
+
+.app {
+  display: flex; height: 100vh; overflow: hidden;
+  background: var(--bg); color: var(--text); position: relative;
+}
+
+.sidebar {
+  width: 232px; flex: 0 0 auto;
+  background: var(--sidebar-bg); color: var(--sidebar-text);
+  display: flex; flex-direction: column;
+}
+.notelist {
+  width: 320px; flex: 0 0 auto; min-width: 0; position: relative;
+  background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.editorpane {
+  flex: 1; min-width: 0; background: var(--surface);
+  display: flex; flex-direction: column;
+}
+.infopane {
+  width: 280px; flex: 0 0 auto; overflow-y: auto; display: none;
+  background: var(--panel); border-left: 1px solid var(--border);
+}
+.app.info-open .infopane { display: block; }
+
+/* helpers for responsive button visibility */
+.only-narrow { display: none; }
+.scrim { display: none; }
