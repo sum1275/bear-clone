@@ -19,6 +19,10 @@ import { Sidebar, type ThemeName } from "@/components/Sidebar";
 import { NoteList } from "@/components/NoteList";
 import { Editor, type Draft } from "@/components/Editor";
 import { InfoPanel } from "@/components/InfoPanel";
+import { Settings } from "@/components/Settings";
+import { useSettings } from "@/hooks/useSettings";
+import { settingsToCssVars } from "@/lib/settings";
+import type { CSSProperties } from "react";
 
 const THEME_KEY = "notes-theme";
 const LIBRARY_TYPES = [
@@ -46,8 +50,10 @@ const SHORTCUTS: Record<string, FilterType> = {
 
 export default function NotesApp() {
   const { notes, create, edit, remove } = useNotes();
+  const { settings, update: updateSettings, resetTypography } = useSettings();
 
   const [theme, setTheme] = useState<ThemeName>("light");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>({ type: "all" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft>({ title: "", content: "" });
@@ -267,14 +273,17 @@ export default function NotesApp() {
 
   const compose = useCallback(async () => {
     void save();
-    const created = await create({ title: "New Note", content: "" });
+    // "Create new notes with" (General settings): seed an empty heading line or
+    // start with plain body text.
+    const content = settings.newNoteWith === "heading" ? "# " : "";
+    const created = await create({ title: "New Note", content });
     if (created) {
       setFilter({ type: "all" });
       setSelectedId(created.id);
       setMobileView("editor");
       setDrawerOpen(false);
     }
-  }, [create, save]);
+  }, [create, save, settings.newNoteWith]);
 
   const toggleFlag = useCallback((key: keyof FlagSets, id: number) => {
     setFlags((prev) => {
@@ -311,7 +320,7 @@ export default function NotesApp() {
     .join(" ");
 
   return (
-    <div className={appClass} data-theme={theme}>
+    <div className={appClass} data-theme={theme} style={settingsToCssVars(settings) as CSSProperties}>
       <div className="scrim" onClick={() => setDrawerOpen(false)} />
 
       <Sidebar
@@ -321,6 +330,7 @@ export default function NotesApp() {
         tagTree={tagTree}
         theme={theme}
         onTheme={setTheme}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <NoteList
@@ -339,6 +349,7 @@ export default function NotesApp() {
         onSelect={openNote}
         onCompose={compose}
         onOpenDrawer={() => setDrawerOpen(true)}
+        keepTags={settings.keepTags}
       />
 
       <Editor
@@ -362,10 +373,22 @@ export default function NotesApp() {
         onTrash={() => selectedNote && toggleFlag("trashed", selectedNote.id)}
         onRestore={() => selectedNote && toggleFlag("trashed", selectedNote.id)}
         onDeleteForever={() => selectedNote && deleteForever(selectedNote.id)}
+        keepTags={settings.keepTags}
       />
 
       {infoOpen && selectedNote && (
         <InfoPanel note={selectedNote} onClose={() => setInfoOpen(false)} />
+      )}
+
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          onChange={updateSettings}
+          onResetTypography={resetTypography}
+          theme={theme}
+          onTheme={setTheme}
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
     </div>
   );

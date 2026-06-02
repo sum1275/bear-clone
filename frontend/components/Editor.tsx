@@ -4,7 +4,7 @@ import { Menu, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
 import { extractTags, renderMarkdown } from "@/lib/markdown";
 import { findBlock, segmentBlocks } from "@/lib/segments";
-import { downloadText, safeFilename } from "@/lib/download";
+import { downloadText, safeFilename, stripTags } from "@/lib/download";
 import type { FlagSets } from "@/lib/view";
 
 export interface Draft {
@@ -27,6 +27,7 @@ interface EditorProps {
   onTrash: () => void;
   onRestore: () => void;
   onDeleteForever: () => void;
+  keepTags: boolean;
 }
 
 // Where to drop the caret when a block becomes active.
@@ -47,6 +48,7 @@ export function Editor({
   onTrash,
   onRestore,
   onDeleteForever,
+  keepTags,
 }: EditorProps) {
   // The block currently shown as raw source (line range), or null when the
   // whole note is rendered. Tracked by line range so edits can be spliced back.
@@ -62,7 +64,10 @@ export function Editor({
   // empty note (e.g. just composed) so the caret is ready to type. We key off
   // the persisted note content, not the draft, which may not have synced yet.
   useEffect(() => {
-    if (note && note.content.trim() === "" && !readOnly) {
+    // Empty, or seeded with just a heading marker ("# " from the "new notes
+    // with Heading 1" setting) → open the first line ready to type.
+    const bare = note ? note.content.replace(/^\s*#{1,6}\s*/, "").trim() : "x";
+    if (note && bare === "" && !readOnly) {
       setActive({ start: 0, end: 0 });
       pendingCaret.current = "end";
     } else {
@@ -208,7 +213,10 @@ export function Editor({
       .replace(/\[\[([^\]]+)\]\]/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
   const exportNote = () =>
-    downloadText(safeFilename(title, "md"), `# ${title}\n\n${draft.content}`);
+    downloadText(
+      safeFilename(title, "md"),
+      `# ${title}\n\n${keepTags ? draft.content : stripTags(draft.content)}`,
+    );
   const copyLink = () => copy(`${location.origin}/?note=${note.id}`);
 
   return (

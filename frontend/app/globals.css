@@ -16,4 +16,5 @@
 @import "./styles/menu.css";         /* shared dropdown / Menu primitive */
 @import "./styles/info-panel.css";   /* stats + outline panel */
 @import "./styles/doc.css";          /* rendered markdown (.doc) */
+@import "./styles/settings.css";     /* settings window (modal) */
 @import "./styles/responsive.css";   /* collapse + phone layout — keep LAST */

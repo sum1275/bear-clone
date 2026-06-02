@@ -3,7 +3,7 @@ import { Icon } from "@/components/icons";
 import { Menu, MenuHeader, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
 import { extractTags } from "@/lib/markdown";
-import { downloadText } from "@/lib/download";
+import { downloadText, stripTags } from "@/lib/download";
 import type { Filter, FilterType, FlagSets, PreviewStyle, SortKey } from "@/lib/view";
 import { filterTitle, relativeTime, snippet, splitEmoji } from "@/lib/view";
 import type { IconName } from "@/components/icons";
@@ -24,6 +24,7 @@ interface NoteListProps {
   onSelect: (note: Note) => void;
   onCompose: () => void;
   onOpenDrawer: () => void;
+  keepTags: boolean;
 }
 
 // The library switcher items, with their ⌥⌘ shortcuts (mirrors NotesApp's
@@ -67,13 +68,17 @@ export function NoteList({
   onSelect,
   onCompose,
   onOpenDrawer,
+  keepTags,
 }: NoteListProps) {
   const title = filterTitle(filter);
 
   const exportLibrary = () => {
     // One markdown file with every note in the current view, separated by ---.
     const body = notes
-      .map((n) => `# ${n.title || "Untitled"}\n\n${n.content}`.trim())
+      .map((n) => {
+        const content = keepTags ? n.content : stripTags(n.content);
+        return `# ${n.title || "Untitled"}\n\n${content}`.trim();
+      })
       .join("\n\n---\n\n");
     const name = title.replace(/[^\w]+/g, "-").toLowerCase() || "notes";
     downloadText(`${name}.md`, body || "");

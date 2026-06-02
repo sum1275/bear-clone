@@ -29,6 +29,7 @@ interface SidebarProps {
   tagTree: TagNode[];
   theme: ThemeName;
   onTheme: (t: ThemeName) => void;
+  onOpenSettings: () => void;
 }
 
 // One tag row plus its children (recursive). Top-level tags align with the
@@ -75,13 +76,24 @@ function TagRows({
   );
 }
 
-export function Sidebar({ filter, onFilter, counts, tagTree, theme, onTheme }: SidebarProps) {
+export function Sidebar({
+  filter,
+  onFilter,
+  counts,
+  tagTree,
+  theme,
+  onTheme,
+  onOpenSettings,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidetop">
         <span className="brand">
           Notes<b>.</b>
         </span>
+        <button className="sidesettings" onClick={onOpenSettings} aria-label="Settings">
+          <Icon name="sliders" />
+        </button>
       </div>
 
       <div className="sidescroll">

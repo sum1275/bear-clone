@@ -113,6 +113,24 @@ const PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   "stats": <path d="M12 20V10M18 20V4M6 20v-4" />,
+  "sliders": (
+    <>
+      <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3" />
+      <path d="M14 2v4M8 10v4M16 18v4" />
+    </>
+  ),
+  "type": (
+    <>
+      <path d="M4 7V4h16v3" />
+      <path d="M9 20h6M12 4v16" />
+    </>
+  ),
+  "palette": (
+    <>
+      <path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a5 5 0 0 0 5-5c0-5-4.5-9-10-9z" />
+      <path d="M7.5 11.5h.01M11.5 7.5h.01M16 10h.01" />
+    </>
+  ),
   // ---- tag category icons (auto-assigned by lib/tags.ts → tagIcon) ----
   "hash": (
     <>
