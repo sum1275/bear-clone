@@ -99,6 +99,25 @@ button { font-family: inherit; cursor: pointer; }
 }
 .app.info-open .infopane { display: block; }
 
+/* ---------- collapsible side panels (wide only) ----------
+   A two-finger horizontal trackpad swipe steps these in/out (handled by the
+   wheel listener in NotesApp). `collapse-1` slides the sidebar off to the left;
+   `collapse-2` also slides the note list off — the editor (flex:1) expands to
+   fill. Scoped to >860px; the narrow layout uses the drawer instead. */
+@media (min-width: 861px) {
+  .sidebar,
+  .notelist {
+    transition: margin-left 0.3s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  .app.collapse-1 .sidebar,
+  .app.collapse-2 .sidebar {
+    margin-left: -232px;
+  }
+  .app.collapse-2 .notelist {
+    margin-left: -320px;
+  }
+}
+
 /* helpers for responsive button visibility */
 .only-narrow { display: none; }
 .scrim { display: none; }

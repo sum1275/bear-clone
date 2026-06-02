@@ -33,6 +33,9 @@ export default function NotesApp() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   const [flags, setFlags] = useState<FlagSets>(emptyFlags);
+  // Side-panel collapse level (wide layout): 0 = sidebar + list shown,
+  // 1 = sidebar slid out, 2 = sidebar + list slid out (editor full width).
+  const [collapsed, setCollapsed] = useState(0);
 
   // ---- theme: load once, persist on change, apply via data-theme on .app ----
   useEffect(() => {
@@ -42,6 +45,67 @@ export default function NotesApp() {
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  // ---- two-finger horizontal swipe collapses/expands the side panels ----
+  // Swipe left (fingers left) steps panels closed from the left edge; swipe
+  // right reopens them one at a time. Wide layout only. One physical swipe =
+  // one step: after a step we "lock" until an idle gap separates the next.
+  useEffect(() => {
+    let acc = 0;
+    let lastT = 0;
+    let locked = false;
+    const STEP = 60; // accumulated |deltaX| px to trigger one step
+    const IDLE = 160; // ms gap that ends a gesture
+
+    // Walk up from the event target; if a horizontally-scrollable ancestor can
+    // still scroll in the swipe direction, let it scroll instead of collapsing.
+    const contentCanScroll = (target: EventTarget | null, dir: number): boolean => {
+      let node = target instanceof Element ? target : null;
+      while (node && node !== document.body) {
+        if (node.scrollWidth > node.clientWidth + 1) {
+          const ox = getComputedStyle(node).overflowX;
+          if (ox === "auto" || ox === "scroll") {
+            const atStart = node.scrollLeft <= 0;
+            const atEnd = node.scrollLeft + node.clientWidth >= node.scrollWidth - 1;
+            if (dir > 0 && !atEnd) return true;
+            if (dir < 0 && !atStart) return true;
+          }
+        }
+        node = node.parentElement;
+      }
+      return false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (!window.matchMedia("(min-width: 861px)").matches) return; // three-pane only
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll — ignore
+      if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
+      e.preventDefault(); // it's a panel gesture — also blocks history back/forward swipe
+
+      const now = Date.now();
+      if (now - lastT > IDLE) {
+        locked = false; // a new gesture started
+        acc = 0;
+      }
+      lastT = now;
+      if (locked) return;
+
+      acc += e.deltaX;
+      // Natural scrolling: fingers-left → deltaX > 0 (collapse); fingers-right → expand.
+      if (acc > STEP) {
+        setCollapsed((c) => Math.min(2, c + 1));
+        locked = true;
+        acc = 0;
+      } else if (acc < -STEP) {
+        setCollapsed((c) => Math.max(0, c - 1));
+        locked = true;
+        acc = 0;
+      }
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
@@ -157,6 +221,7 @@ export default function NotesApp() {
     drawerOpen ? "drawer-open" : "",
     infoOpen && selectedNote ? "info-open" : "",
     mobileView === "editor" ? "view-editor" : "",
+    collapsed === 1 ? "collapse-1" : collapsed === 2 ? "collapse-2" : "",
   ]
     .filter(Boolean)
     .join(" ");
