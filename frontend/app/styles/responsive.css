@@ -1,0 +1,66 @@
+/* Responsive — imported LAST so its overrides win the cascade.
+   - min-width:861px: the collapsible side panels (two-finger swipe).
+   - max-width:860px: the single-column phone layout (drawer + bottom sheet). */
+
+/* ---------- collapsible side panels (wide only) ----------
+   A two-finger horizontal trackpad swipe steps these in/out (handled by the
+   wheel listener in NotesApp). `collapse-1` slides the sidebar off to the left;
+   `collapse-2` also slides the note list off — the editor (flex:1) expands to
+   fill. Scoped to >860px; the narrow layout uses the drawer instead. */
+@media (min-width: 861px) {
+  .sidebar,
+  .notelist {
+    transition: margin-left 0.3s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  .app.collapse-1 .sidebar,
+  .app.collapse-2 .sidebar {
+    margin-left: -232px;
+  }
+  .app.collapse-2 .notelist {
+    margin-left: -320px;
+  }
+}
+
+/* =====================================================================
+   phone single-column below 860px
+   ===================================================================== */
+@media (max-width: 860px) {
+  .only-wide { display: none !important; }
+  .only-narrow { display: inline-flex; }
+
+  /* sidebar -> left drawer overlay */
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; width: 80%; max-width: 320px; z-index: 40;
+    transform: translateX(-100%); transition: transform .28s cubic-bezier(.3,.7,.3,1);
+    box-shadow: 0 18px 50px rgba(0,0,0,.4);
+  }
+  .app.drawer-open .sidebar { transform: translateX(0); }
+  .scrim {
+    display: block; position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.4);
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .app.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+
+  /* list / editor -> full width, one at a time */
+  .notelist, .editorpane { width: 100%; flex: 1 1 auto; border-right: 0; }
+  .app.view-editor .notelist { display: none; }
+  .app:not(.view-editor) .editorpane { display: none; }
+
+  /* compose FAB shows on the list view */
+  .app:not(.view-editor) .fab { display: grid; }
+
+  /* info -> bottom sheet */
+  .infopane {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 74%;
+    border-left: 0; border-radius: 22px 22px 0 0; z-index: 42; box-shadow: 0 -10px 40px rgba(0,0,0,.3);
+  }
+
+  /* phone-scale the doc + editing inputs */
+  .doc.mac { padding: 6px 22px 40px; max-width: none; }
+  .doc.mac h1 { font-size: 27px; }
+  .doc.mac h2 { font-size: 20px; }
+  .doc.mac p { font-size: 16px; line-height: 1.6; }
+  .doc.mac .imgph { height: 190px; }
+  .titleinput { font-size: 27px; padding: 8px 22px 0; max-width: none; }
+  .rawarea { font-size: 16px; padding: 10px 22px 40px; max-width: none; }
+}

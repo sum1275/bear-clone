@@ -48,18 +48,31 @@ Key modules:
 
 ```
 app/page.tsx          renders <NotesApp/>
-app/globals.css       theme tokens (4 themes) + .doc markdown styles + responsive shell
-components/NotesApp    "use client" orchestrator — owns all UI state + the .app shell
-components/Sidebar     library rows w/ counts, nested tag tree, theme picker
-components/NoteList    search, note cards, compose FAB
-components/Editor      rendered-markdown <-> raw-textarea toggle, formatting pill, more-menu
+app/globals.css       manifest that @imports app/styles/*.css (split by concern; responsive.css last)
+app/styles/*.css      foundation·shell·sidebar·note-list·editor·menu·info-panel·doc·settings·responsive
+components/NotesApp    "use client" orchestrator — owns all UI state (incl. sort/preview/settings) + ⌥⌘ shortcuts
+components/Sidebar     library rows w/ counts, nested tag tree, theme picker, ⚙ settings button
+components/NoteList    "Notes ⌄" library dropdown (sort/preview/export + shortcuts), search, cards, FAB
+components/Editor      Bear-style live editor (per-line render/raw) + formatting pill + ⋯ menu
+components/Menu        reusable dropdown primitive (Menu/MenuHeader/MenuItem/MenuSep/SubMenu)
+components/Settings    Bear-style Settings window (General / Typography / Themes tabs)
 components/InfoPanel   Info (stats/dates/tags) + Outline (TOC) tabs
 components/icons       shared currentColor line-icon set
 lib/markdown.ts        escape-first markdown->HTML renderer + extractTags/noteStats/extractToc
-lib/tags.ts            nested #tag tree w/ descendant counts + deterministic tag colors
-lib/view.ts            filter model, ephemeral flag sets, list-derivation helpers
+lib/segments.ts        splits content into editable blocks (line-level; groups code/table/ol/quote)
+lib/tags.ts            nested #tag tree w/ descendant counts + auto-assigned monochrome tag icons (tagIcon)
+lib/view.ts            filter model (incl. pinned), sortNotes, ephemeral flag sets, list-derivation helpers
+lib/download.ts        client-side text→file download + stripTags (Export actions)
+lib/settings.ts        Settings model/defaults, localStorage load/save, typography→CSS-var mapping
 hooks/useNotes.ts      fetch + create/edit/remove (each mutation re-fetches; returns saved note)
+hooks/useSettings.ts   settings state + localStorage persistence (+ resetTypography)
 ```
+
+**Settings** (`components/Settings`, persisted via `hooks/useSettings` → localStorage):
+Typography metrics drive the editor live through `--doc-*` CSS vars
+(`settingsToCssVars` → set on `.app`; read by doc.css/editor.css). Wired General
+options: `newNoteWith` (compose seeds `# `) and `keepTags` (export strips tags
+when off). Other General toggles persist but are not yet wired to behavior.
 
 **Derived client-side, not persisted:** tags (from `#hashtags` in content),
 stats, TOC, and smart lists (Untagged / To-Do / Today). Pin, lock, and archive

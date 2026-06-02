@@ -10,6 +10,7 @@ const LIBRARY: { type: FilterType; label: string; icon: IconName }[] = [
   { type: "todo", label: "To-Do", icon: "todo" },
   { type: "today", label: "Today", icon: "today" },
   { type: "locked", label: "Locked", icon: "lock" },
+  { type: "pinned", label: "Pinned", icon: "pin" },
   { type: "archive", label: "Archive", icon: "archive" },
   { type: "trash", label: "Trash", icon: "trash" },
 ];
@@ -28,10 +29,12 @@ interface SidebarProps {
   tagTree: TagNode[];
   theme: ThemeName;
   onTheme: (t: ThemeName) => void;
+  onOpenSettings: () => void;
 }
 
-// One tag row plus its children (recursive). `.srow.child` sets the base indent
-// (30px); each nesting level adds 16px so the hierarchy reads visually.
+// One tag row plus its children (recursive). Top-level tags align with the
+// library rows; each nesting level adds 18px of left padding so the hierarchy
+// reads visually.
 function TagRows({
   nodes,
   filter,
@@ -51,10 +54,10 @@ function TagRows({
           <div key={node.name}>
             <button
               className={`srow child${sel ? " sel" : ""}`}
-              style={depth > 0 ? { paddingLeft: 30 + depth * 16 } : undefined}
+              style={depth > 0 ? { paddingLeft: 10 + depth * 18 } : undefined}
               onClick={() => onFilter({ type: "tag", tag: node.name })}
             >
-              <span className="tagdot" style={{ background: node.color }} />
+              <Icon name={node.icon} />
               {node.label}
               <span className="count">{node.count}</span>
             </button>
@@ -73,13 +76,24 @@ function TagRows({
   );
 }
 
-export function Sidebar({ filter, onFilter, counts, tagTree, theme, onTheme }: SidebarProps) {
+export function Sidebar({
+  filter,
+  onFilter,
+  counts,
+  tagTree,
+  theme,
+  onTheme,
+  onOpenSettings,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidetop">
         <span className="brand">
           Notes<b>.</b>
         </span>
+        <button className="sidesettings" onClick={onOpenSettings} aria-label="Settings">
+          <Icon name="sliders" />
+        </button>
       </div>
 
       <div className="sidescroll">

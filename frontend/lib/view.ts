@@ -12,6 +12,7 @@ export type FilterType =
   | "todo"
   | "today"
   | "locked"
+  | "pinned"
   | "archive"
   | "trash"
   | "tag";
@@ -20,6 +21,10 @@ export interface Filter {
   type: FilterType;
   tag?: string; // set only when type === "tag"
 }
+
+// Note-list ordering and card density — set from the "Notes ⌄" library menu.
+export type SortKey = "modified" | "created" | "title";
+export type PreviewStyle = "title" | "one" | "multi";
 
 // Ephemeral per-note flags. Membership = flag is on.
 export interface FlagSets {
@@ -108,11 +113,25 @@ export function matchesFilter(note: Note, f: Filter, flags: FlagSets): boolean {
       return isToday(note.updated_at);
     case "locked":
       return flags.locked.has(note.id);
+    case "pinned":
+      return flags.pinned.has(note.id);
     case "tag":
       return f.tag ? hasTag(note.content, f.tag) : true;
     default:
       return true;
   }
+}
+
+// Order notes for the list: pinned always float to the top, then by sort key.
+export function sortNotes(notes: Note[], key: SortKey, flags: FlagSets): Note[] {
+  const ts = (s: string) => new Date(s).getTime() || 0;
+  return [...notes].sort((a, b) => {
+    const pin = (flags.pinned.has(b.id) ? 1 : 0) - (flags.pinned.has(a.id) ? 1 : 0);
+    if (pin !== 0) return pin;
+    if (key === "title") return (a.title || "").localeCompare(b.title || "");
+    if (key === "created") return ts(b.created_at) - ts(a.created_at);
+    return ts(b.updated_at) - ts(a.updated_at);
+  });
 }
 
 // Free-text search across title + content (case-insensitive).
@@ -135,6 +154,8 @@ export function filterTitle(f: Filter): string {
       return "Today";
     case "locked":
       return "Locked";
+    case "pinned":
+      return "Pinned";
     case "archive":
       return "Archive";
     case "trash":

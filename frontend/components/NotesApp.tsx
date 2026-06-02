@@ -1,38 +1,70 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotes } from "@/hooks/useNotes";
 import type { Note } from "@/lib/notes";
 import { buildTagTree } from "@/lib/tags";
 import {
   emptyFlags,
-  filterTitle,
   matchesFilter,
   matchesQuery,
+  sortNotes,
   type Filter,
+  type FilterType,
   type FlagSets,
+  type PreviewStyle,
+  type SortKey,
 } from "@/lib/view";
 import { Sidebar, type ThemeName } from "@/components/Sidebar";
 import { NoteList } from "@/components/NoteList";
 import { Editor, type Draft } from "@/components/Editor";
 import { InfoPanel } from "@/components/InfoPanel";
+import { Settings } from "@/components/Settings";
+import { useSettings } from "@/hooks/useSettings";
+import { settingsToCssVars } from "@/lib/settings";
+import type { CSSProperties } from "react";
 
 const THEME_KEY = "notes-theme";
-const LIBRARY_TYPES = ["all", "untagged", "todo", "today", "locked", "archive", "trash"] as const;
+const LIBRARY_TYPES = [
+  "all",
+  "untagged",
+  "todo",
+  "today",
+  "locked",
+  "pinned",
+  "archive",
+  "trash",
+] as const;
+
+// ⌥⌘<digit> → library filter (shown as hints in the "Notes ⌄" menu).
+const SHORTCUTS: Record<string, FilterType> = {
+  "1": "all",
+  "2": "untagged",
+  "3": "todo",
+  "4": "today",
+  "5": "locked",
+  "6": "pinned",
+  "9": "archive",
+  "0": "trash",
+};
 
 export default function NotesApp() {
   const { notes, create, edit, remove } = useNotes();
+  const { settings, update: updateSettings, resetTypography } = useSettings();
 
   const [theme, setTheme] = useState<ThemeName>("light");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>({ type: "all" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>({ title: "", content: "" });
   const [query, setQuery] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   const [flags, setFlags] = useState<FlagSets>(emptyFlags);
+  const [sort, setSort] = useState<SortKey>("modified");
+  const [preview, setPreview] = useState<PreviewStyle>("multi");
+  const searchRef = useRef<HTMLInputElement>(null);
   // Side-panel collapse level (wide layout): 0 = sidebar + list shown,
   // 1 = sidebar slid out, 2 = sidebar + list slid out (editor full width).
   const [collapsed, setCollapsed] = useState(0);
@@ -49,7 +81,16 @@ export default function NotesApp() {
   // ---- two-finger horizontal swipe collapses/expands the side panels ----
   // Swipe left (fingers left) steps panels closed from the left edge; swipe
   // right reopens them one at a time. Wide layout only. One physical swipe =
-  // one step: after a step we "lock" until an idle gap separates the next.
+  // one step.
+  //
+  // The tricky part is separating swipes: a trackpad keeps firing *inertial*
+  // (momentum) wheel events for up to ~1s after the finger lifts, so we can't
+  // just wait for an idle gap to re-arm — that gap never comes between two
+  // quick swipes, and the second swipe gets swallowed. Instead, after a step we
+  // stay locked through the momentum tail (whose |deltaX| only ever decays) and
+  // re-arm the instant that tail dies out (QUIET) or a fresh flick appears (a
+  // sharp rising edge in |deltaX|). That lets you collapse/expand both panels
+  // in quick succession.
   //
   // The listener is PASSIVE on purpose: a non-passive wheel listener forces the
   // browser to run JS before every scroll frame and disables off-thread
@@ -59,9 +100,12 @@ export default function NotesApp() {
   useEffect(() => {
     let acc = 0;
     let lastT = 0;
+    let prevAbs = 0;
     let locked = false;
     const STEP = 60; // accumulated |deltaX| px to trigger one step
-    const IDLE = 160; // ms gap that ends a gesture
+    const IDLE = 140; // ms with no wheel events at all → gesture ended
+    const QUIET = 4; // |deltaX| at/below this ≈ the momentum tail has died out
+    const REARM = 1.6; // |deltaX| jumping this far above the tail = a new flick
     // Cache the media query once instead of allocating a MediaQueryList per event.
     const wide = window.matchMedia("(min-width: 861px)");
 
@@ -90,11 +134,25 @@ export default function NotesApp() {
       if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
 
       const now = Date.now();
+      const abs = Math.abs(e.deltaX);
+
+      // A genuine pause (no events at all for IDLE ms) ends the gesture.
       if (now - lastT > IDLE) {
-        locked = false; // a new gesture started
+        locked = false;
         acc = 0;
+        prevAbs = 0;
       }
       lastT = now;
+
+      // While locked (riding out the previous swipe's momentum), re-arm only
+      // when that tail has gone quiet or the user clearly started a new flick —
+      // never while |deltaX| is still high and decaying, so one swipe can't
+      // double-step.
+      if (locked && (abs <= QUIET || (abs > 12 && abs > prevAbs * REARM))) {
+        locked = false;
+        acc = 0;
+      }
+      prevAbs = abs;
       if (locked) return;
 
       acc += e.deltaX;
@@ -114,6 +172,21 @@ export default function NotesApp() {
     return () => window.removeEventListener("wheel", onWheel);
   }, []);
 
+  // ⌥⌘<digit> jumps to a library (matches the hints in the "Notes ⌄" menu).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.metaKey || !e.altKey) return;
+      const type = SHORTCUTS[e.key];
+      if (!type) return;
+      e.preventDefault();
+      setFilter({ type });
+      setMobileView("list");
+      setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
     [notes, selectedId],
@@ -131,14 +204,12 @@ export default function NotesApp() {
 
   const visibleNotes = useMemo(
     () =>
-      notes
-        .filter((n) => matchesFilter(n, filter, flags) && matchesQuery(n, query))
-        .sort((a, b) => {
-          const pinDiff = (flags.pinned.has(b.id) ? 1 : 0) - (flags.pinned.has(a.id) ? 1 : 0);
-          if (pinDiff !== 0) return pinDiff;
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-        }),
-    [notes, filter, flags, query],
+      sortNotes(
+        notes.filter((n) => matchesFilter(n, filter, flags) && matchesQuery(n, query)),
+        sort,
+        flags,
+      ),
+    [notes, filter, flags, query, sort],
   );
 
   // Auto-select the first visible note once data arrives (wide-screen comfort).
@@ -148,20 +219,47 @@ export default function NotesApp() {
     }
   }, [selectedId, visibleNotes]);
 
-  // Keep the draft mirroring the selected note unless we're actively editing.
-  // updated_at in deps re-syncs the rendered view right after a save.
+  // Reset the editing buffer when we switch to a different note. We deliberately
+  // do NOT re-sync on updated_at: the live editor always holds the freshest
+  // text, and re-syncing after our own autosave would clobber in-flight typing.
   useEffect(() => {
-    if (selectedNote && !editing) {
-      setDraft({ title: selectedNote.title, content: selectedNote.content });
-    }
-  }, [selectedNote?.id, selectedNote?.updated_at, editing, selectedNote]);
+    if (selectedNote) setDraft({ title: selectedNote.title, content: selectedNote.content });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNote?.id]);
 
-  const openNote = useCallback((note: Note) => {
-    setSelectedId(note.id);
-    setEditing(false);
-    setDraft({ title: note.title, content: note.content });
-    setMobileView("editor");
-  }, []);
+  // Latest draft / note kept in refs so save() can flush without being rebuilt.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const selectedRef = useRef(selectedNote);
+  selectedRef.current = selectedNote;
+
+  // Persist the current draft if it differs from the stored note. The no-op
+  // guard means moving the caret around (no text change) never hits the API.
+  const save = useCallback(async () => {
+    const n = selectedRef.current;
+    const d = draftRef.current;
+    if (!n) return;
+    if (d.title === n.title && d.content === n.content) return;
+    await edit(n.id, { title: d.title, content: d.content });
+  }, [edit]);
+
+  // Debounced autosave — there is no "Done" button anymore, so we persist a
+  // short moment after the user stops typing.
+  useEffect(() => {
+    if (!selectedNote) return;
+    if (draft.title === selectedNote.title && draft.content === selectedNote.content) return;
+    const t = setTimeout(() => void save(), 700);
+    return () => clearTimeout(t);
+  }, [draft, selectedNote, save]);
+
+  const openNote = useCallback(
+    (note: Note) => {
+      void save(); // flush pending edits on the note we're leaving
+      setSelectedId(note.id);
+      setMobileView("editor");
+    },
+    [save],
+  );
 
   const onFilter = useCallback((f: Filter) => {
     setFilter(f);
@@ -173,30 +271,19 @@ export default function NotesApp() {
     setDraft((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const startEdit = useCallback(() => {
-    if (selectedNote) {
-      setDraft({ title: selectedNote.title, content: selectedNote.content });
-      setEditing(true);
-    }
-  }, [selectedNote]);
-
-  const saveDraft = useCallback(async () => {
-    if (!selectedNote) return;
-    await edit(selectedNote.id, { title: draft.title, content: draft.content });
-    setEditing(false);
-  }, [edit, selectedNote, draft]);
-
   const compose = useCallback(async () => {
-    const created = await create({ title: "New Note", content: "" });
+    void save();
+    // "Create new notes with" (General settings): seed an empty heading line or
+    // start with plain body text.
+    const content = settings.newNoteWith === "heading" ? "# " : "";
+    const created = await create({ title: "New Note", content });
     if (created) {
       setFilter({ type: "all" });
       setSelectedId(created.id);
-      setDraft({ title: created.title, content: created.content });
-      setEditing(true);
       setMobileView("editor");
       setDrawerOpen(false);
     }
-  }, [create]);
+  }, [create, save, settings.newNoteWith]);
 
   const toggleFlag = useCallback((key: keyof FlagSets, id: number) => {
     setFlags((prev) => {
@@ -216,7 +303,6 @@ export default function NotesApp() {
         return { ...prev, trashed };
       });
       setSelectedId(null);
-      setEditing(false);
     },
     [remove],
   );
@@ -234,7 +320,7 @@ export default function NotesApp() {
     .join(" ");
 
   return (
-    <div className={appClass} data-theme={theme}>
+    <div className={appClass} data-theme={theme} style={settingsToCssVars(settings) as CSSProperties}>
       <div className="scrim" onClick={() => setDrawerOpen(false)} />
 
       <Sidebar
@@ -244,41 +330,65 @@ export default function NotesApp() {
         tagTree={tagTree}
         theme={theme}
         onTheme={setTheme}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <NoteList
-        title={filterTitle(filter)}
         notes={visibleNotes}
         selectedId={selectedId}
         flags={flags}
         query={query}
+        filter={filter}
+        onFilter={onFilter}
+        sort={sort}
+        onSort={setSort}
+        preview={preview}
+        onPreview={setPreview}
+        searchRef={searchRef}
         onQuery={setQuery}
         onSelect={openNote}
         onCompose={compose}
         onOpenDrawer={() => setDrawerOpen(true)}
+        keepTags={settings.keepTags}
       />
 
       <Editor
         note={selectedNote}
-        editing={editing}
         draft={draft}
         flags={flags}
         inTrash={inTrash}
         onChange={onChange}
-        onStartEdit={startEdit}
-        onSave={saveDraft}
         onBack={() => setMobileView("list")}
         onToggleInfo={() => setInfoOpen((v) => !v)}
+        onSearch={() => {
+          setMobileView("list");
+          // Focus now (wide layout) and again after layout settles (narrow,
+          // where switching to the list view re-mounts the search field).
+          searchRef.current?.focus();
+          requestAnimationFrame(() => searchRef.current?.focus());
+        }}
         onPin={() => selectedNote && toggleFlag("pinned", selectedNote.id)}
         onLock={() => selectedNote && toggleFlag("locked", selectedNote.id)}
         onArchive={() => selectedNote && toggleFlag("archived", selectedNote.id)}
         onTrash={() => selectedNote && toggleFlag("trashed", selectedNote.id)}
         onRestore={() => selectedNote && toggleFlag("trashed", selectedNote.id)}
         onDeleteForever={() => selectedNote && deleteForever(selectedNote.id)}
+        keepTags={settings.keepTags}
       />
 
       {infoOpen && selectedNote && (
         <InfoPanel note={selectedNote} onClose={() => setInfoOpen(false)} />
+      )}
+
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          onChange={updateSettings}
+          onResetTypography={resetTypography}
+          theme={theme}
+          onTheme={setTheme}
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
     </div>
   );
