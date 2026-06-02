@@ -63,7 +63,7 @@ export default function NotesApp() {
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   const [flags, setFlags] = useState<FlagSets>(emptyFlags);
   const [sort, setSort] = useState<SortKey>("modified");
-  const [preview, setPreview] = useState<PreviewStyle>("multi");
+  const [preview, setPreview] = useState<PreviewStyle>("medium");
   const searchRef = useRef<HTMLInputElement>(null);
   // Side-panel collapse level (wide layout): 0 = sidebar + list shown,
   // 1 = sidebar slid out, 2 = sidebar + list slid out (editor full width).
