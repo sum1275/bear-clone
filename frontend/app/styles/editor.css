@@ -30,8 +30,9 @@
 /* the one raw line under the caret */
 .liveinput {
   display: block; width: 100%; border: 0; outline: none; resize: none; overflow: hidden;
-  background: transparent; color: var(--text); font-family: inherit;
-  font-size: var(--doc-fs, 17.5px); line-height: var(--doc-lh, 1.65);
+  background: transparent; color: var(--text);
+  font-family: inherit; font-size: inherit; font-weight: inherit;
+  line-height: var(--doc-lh, 1.65);
   padding: 0; margin: var(--doc-pspace, 11px) 0; caret-color: var(--caret);
 }
 
