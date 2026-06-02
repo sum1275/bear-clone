@@ -50,12 +50,20 @@ export default function NotesApp() {
   // Swipe left (fingers left) steps panels closed from the left edge; swipe
   // right reopens them one at a time. Wide layout only. One physical swipe =
   // one step: after a step we "lock" until an idle gap separates the next.
+  //
+  // The listener is PASSIVE on purpose: a non-passive wheel listener forces the
+  // browser to run JS before every scroll frame and disables off-thread
+  // scrolling, which makes the note list lag. We therefore never call
+  // preventDefault here; the macOS history back/forward swipe is suppressed via
+  // `overscroll-behavior-x: none` (see globals.css) instead.
   useEffect(() => {
     let acc = 0;
     let lastT = 0;
     let locked = false;
     const STEP = 60; // accumulated |deltaX| px to trigger one step
     const IDLE = 160; // ms gap that ends a gesture
+    // Cache the media query once instead of allocating a MediaQueryList per event.
+    const wide = window.matchMedia("(min-width: 861px)");
 
     // Walk up from the event target; if a horizontally-scrollable ancestor can
     // still scroll in the swipe direction, let it scroll instead of collapsing.
@@ -77,10 +85,9 @@ export default function NotesApp() {
     };
 
     const onWheel = (e: WheelEvent) => {
-      if (!window.matchMedia("(min-width: 861px)").matches) return; // three-pane only
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll — ignore
+      if (!wide.matches) return; // three-pane only
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll — ignore (fast path)
       if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
-      e.preventDefault(); // it's a panel gesture — also blocks history back/forward swipe
 
       const now = Date.now();
       if (now - lastT > IDLE) {
@@ -103,7 +110,7 @@ export default function NotesApp() {
       }
     };
 
-    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("wheel", onWheel, { passive: true });
     return () => window.removeEventListener("wheel", onWheel);
   }, []);
 
