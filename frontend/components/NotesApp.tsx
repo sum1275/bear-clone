@@ -349,8 +349,6 @@ export default function NotesApp() {
         onSelect={openNote}
         onCompose={compose}
         onOpenDrawer={() => setDrawerOpen(true)}
-        onPin={(note) => toggleFlag("pinned", note.id)}
-        onTrash={(note) => toggleFlag("trashed", note.id)}
         keepTags={settings.keepTags}
       />
 
