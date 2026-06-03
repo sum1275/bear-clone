@@ -1,4 +1,4 @@
-import { type RefObject, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Menu, MenuHeader, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
@@ -33,8 +33,9 @@ interface NoteListProps {
 const SWIPE_THRESHOLD = 80;
 
 // A note card you can swipe horizontally: left = pin, right = move to trash.
-// Vertical drags fall through to the list scroll (touch-action: pan-y), and a
-// gesture that doesn't pass the threshold springs back without selecting.
+// Works with both a pointer drag (touch / mouse) and a MacBook two-finger
+// trackpad swipe (wheel events). Vertical gestures fall through to the list
+// scroll, and a gesture that doesn't pass the threshold springs back.
 function SwipeCard({
   className,
   onOpen,
@@ -50,15 +51,65 @@ function SwipeCard({
 }) {
   const [dx, setDx] = useState(0);
   const [animating, setAnimating] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const dxRef = useRef(0);
   const axis = useRef<"none" | "h" | "v">("none");
   const swiped = useRef(false);
+  // Latest action callbacks, read by the long-lived wheel listener.
+  const handlers = useRef({ onSwipeLeft, onSwipeRight });
+  useEffect(() => {
+    handlers.current = { onSwipeLeft, onSwipeRight };
+  });
 
   const move = (x: number) => {
     dxRef.current = x;
     setDx(x);
   };
+
+  // Trackpad two-finger swipe → wheel events. Attached non-passively so we can
+  // preventDefault (stop horizontal scroll) and stopPropagation (so NotesApp's
+  // window wheel listener doesn't also collapse the sidebar). Commits the action
+  // as soon as the accumulated horizontal delta passes the threshold.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    let acc = 0;
+    let committed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reset = () => {
+      acc = 0;
+      committed = false;
+      setAnimating(true);
+      move(0);
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) {
+        if (acc !== 0 && !committed) reset(); // vertical scroll — abandon swipe
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(timer);
+      timer = setTimeout(reset, 160); // gesture ends after a quiet gap
+      if (committed) return;
+      acc -= e.deltaX; // natural scroll: fingers-left (deltaX>0) → card moves left
+      if (Math.abs(acc) >= SWIPE_THRESHOLD) {
+        committed = true;
+        (acc < 0 ? handlers.current.onSwipeLeft : handlers.current.onSwipeRight)();
+        setAnimating(true);
+        move(0);
+        return;
+      }
+      setAnimating(false);
+      move(Math.max(-140, Math.min(140, acc)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      clearTimeout(timer);
+    };
+  }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -125,6 +176,7 @@ function SwipeCard({
         </div>
       )}
       <article
+        ref={cardRef}
         className={className}
         style={{ transform: `translateX(${dx}px)`, transition: animating ? "transform .2s ease" : "none" }}
         onPointerDown={onPointerDown}

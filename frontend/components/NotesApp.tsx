@@ -131,6 +131,9 @@ export default function NotesApp() {
     const onWheel = (e: WheelEvent) => {
       if (!wide.matches) return; // three-pane only
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll — ignore (fast path)
+      // Horizontal swipes over the note list are the cards' pin/trash gesture,
+      // not a panel-collapse — let SwipeCard own them.
+      if (e.target instanceof Element && e.target.closest(".listscroll")) return;
       if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
 
       const now = Date.now();
