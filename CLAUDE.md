@@ -93,3 +93,45 @@ are session-only UI state (ephemeral `Set<number>` in `NotesApp`); Trash's
 - Frontend: rebuilt as the Bear-style responsive app described above. Full compose/edit/delete UI wired to the existing CRUD; markdown rendering, derived tags/stats/TOC, theming, and the three-pane↔phone responsive layout all working. TypeScript types are auto-generated from the backend OpenAPI schema into `frontend/lib/api.d.ts` via `npm run types:generate`.
 - Editor: the note body uses a **CodeMirror 6 live-preview** editor (`components/LiveEditor` + `lib/cm/*`). The buffer is always raw markdown; decorations hide block syntax (heading `#`, quote `>`, list markers, code fences when the caret is elsewhere) and reveal inline delimiters (`**`/`*`/`~~`/`==`/`` ` ``) only when the caret is inside that span — so there is no font-size jump or reflow. Checkboxes/bullets/tables/`---` render as widgets (tables are render-only for now; inline cell editing is a TODO). `lib/markdown.ts` `renderMarkdown` is still used for Copy-as-HTML and the table widget.
 - No tags support in the **backend** yet — the schema has only the `notes` table (`id`, `title`, `content`, `created_at`, `updated_at`); no tags table, `/tags` endpoint, or `?tag=` filter. Tags currently live only client-side (derived from `#hashtags`), so they are not searchable server-side and reset nothing on the backend.
+
+### Editor tradeoffs & known limitations
+
+Decisions made while building the CodeMirror live-preview editor — read before
+extending `lib/cm/*`:
+
+- **New dependency surface.** ~22 `@codemirror/*` + `@lezer/*` packages were added
+  to a previously dependency-light frontend. We chose CM's correctness (caret,
+  undo/redo, IME, selection, line wrapping) over hand-rolling a contenteditable;
+  the cost is bundle weight and a real editor framework to learn.
+- **Two rendering paths to keep in sync.** The editor renders via CM decorations
+  (`lib/cm/*`); Copy-as-HTML and the table widget still use
+  `lib/markdown.ts` `renderMarkdown`. The CM inline parsers in
+  `lib/cm/markdownExtras.ts` (`#tag`, `==highlight==`, `[[wikilink]]`) can drift
+  from `markdown.ts`'s regex detection — change both when you change syntax. The
+  first-pass `doc.css` tweaks (subtle gray markers, 4px code radius, inherited
+  font sizes) now only affect those non-editor render paths.
+- **Whole-document parse on every change.** `livePreview` rebuilds decorations
+  over the *entire* doc on each doc/selection change (`ensureSyntaxTree`). Fine
+  for note-sized text; it is not windowed to the viewport, so it would not scale
+  to very large documents. (A `ViewPlugin` would window it but can't host the
+  block / line-crossing decorations the table widget and fence collapsing need —
+  hence the `StateField`.)
+- **Heading markers are hidden even when the caret is on the line** (per the Bear
+  spec). Unlike Obsidian you never see the `#`; deleting heading formatting means
+  backspacing over the hidden atomic marker.
+- **Fenced-code fences aren't truly collapsed.** When the caret is outside, the
+  ```` ``` ````/lang lines stay as slim empty "padding bands" (`font-size:0`) — hiding
+  the line breaks outright broke line-decoration ownership, so we approximate the
+  block's padding instead of removing the lines.
+- **Regular `[text](url)` links aren't decorated yet** — they show raw in the
+  editor (only `[[wikilinks]]` are handled, which is what the seed data uses).
+  Code blocks are styled but **not** syntax-highlighted.
+- **Tables are render-only.** The whole table is an atomic widget; you can't edit
+  cells inline yet (deleting/replacing means editing around it). Inline table
+  editing is the planned follow-up.
+- **`toggleLinePrefix`** (pill H / list / checkbox) is a naive exact-prefix toggle
+  (`"# "`), so it doesn't cycle heading levels or recognize `"## "`.
+- **No automated editor tests.** The decoration logic is DOM/CM-heavy and is
+  verified by manual browser testing; the old `lib/segments` unit tests were
+  removed with the file, so automated editor coverage dropped. `lib/markdown.ts`,
+  `tags`, `view`, and `settings` tests still cover the non-editor logic.
