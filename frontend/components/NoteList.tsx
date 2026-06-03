@@ -29,160 +29,187 @@ interface NoteListProps {
   keepTags: boolean;
 }
 
-// Distance (px) a card must travel before a swipe commits its action.
-const SWIPE_THRESHOLD = 80;
+// Fraction of the card width revealed when an action snaps open (the pin/trash
+// button occupies this much of the right/left edge).
+const ACTION_FRACTION = 0.25;
 
-// A note card you can swipe horizontally: left = pin, right = move to trash.
-// Works with both a pointer drag (touch / mouse) and a MacBook two-finger
-// trackpad swipe (wheel events). Vertical gestures fall through to the list
-// scroll, and a gesture that doesn't pass the threshold springs back.
+type Side = "pin" | "trash";
+
+// A note card with iOS-Mail-style swipe actions. Swiping (pointer drag or a
+// MacBook two-finger trackpad swipe) slides the card to *reveal* a button that
+// snaps open at 25% — it does NOT perform the action. The action only fires
+// when you then click the revealed button, which keeps a single swipe from ever
+// affecting more than one note. Swipe left → reveal trash (right); swipe right →
+// reveal pin (left). `openSide` is controlled by the parent so only one card is
+// open at a time.
 function SwipeCard({
   className,
-  onOpen,
-  onSwipeLeft,
-  onSwipeRight,
+  openSide,
+  onReveal,
+  onPin,
+  onTrash,
+  onOpenNote,
   children,
 }: {
   className: string;
-  onOpen: () => void;
-  onSwipeLeft: () => void;
-  onSwipeRight: () => void;
+  openSide: Side | null;
+  onReveal: (side: Side | null) => void;
+  onPin: () => void;
+  onTrash: () => void;
+  onOpenNote: () => void;
   children: React.ReactNode;
 }) {
-  const [dx, setDx] = useState(0);
-  const [animating, setAnimating] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
-  const start = useRef<{ x: number; y: number } | null>(null);
-  const dxRef = useRef(0);
-  const axis = useRef<"none" | "h" | "v">("none");
-  const swiped = useRef(false);
-  // Latest action callbacks, read by the long-lived wheel listener.
-  const handlers = useRef({ onSwipeLeft, onSwipeRight });
-  useEffect(() => {
-    handlers.current = { onSwipeLeft, onSwipeRight };
-  });
-
-  const move = (x: number) => {
-    dxRef.current = x;
-    setDx(x);
+  // Live offset (px) while a gesture is in progress; null when resting (the
+  // resting position then comes from the open-pin/open-trash CSS class).
+  const [drag, setDrag] = useState<number | null>(null);
+  const dragRef = useRef<number | null>(null);
+  const setDragV = (v: number | null) => {
+    dragRef.current = v;
+    setDrag(v);
   };
 
-  // Trackpad two-finger swipe → wheel events. Attached non-passively so we can
-  // preventDefault (stop horizontal scroll) and stopPropagation (so NotesApp's
-  // window wheel listener doesn't also collapse the sidebar). Commits the action
-  // as soon as the accumulated horizontal delta passes the threshold.
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const axis = useRef<"none" | "h" | "v">("none");
+  const moved = useRef(false);
+
+  // Refs so the long-lived wheel listener always sees fresh values.
+  const sideRef = useRef(openSide);
+  const cb = useRef({ onReveal, onPin, onTrash });
+  useEffect(() => {
+    sideRef.current = openSide;
+    cb.current = { onReveal, onPin, onTrash };
+  });
+
+  const actionW = () => (cardRef.current?.clientWidth ?? 320) * ACTION_FRACTION;
+  const restOffset = (side: Side | null) =>
+    side === "pin" ? actionW() : side === "trash" ? -actionW() : 0;
+  const clamp = (x: number) => {
+    const w = actionW();
+    return Math.max(-w, Math.min(w, x));
+  };
+  // Decide where a finished gesture lands: open if dragged past half the reveal.
+  const snap = (offset: number) => {
+    const half = actionW() / 2;
+    const side: Side | null = offset <= -half ? "trash" : offset >= half ? "pin" : null;
+    setDragV(null);
+    cb.current.onReveal(side);
+  };
+
+  // --- pointer drag (touch / mouse) ---
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    axis.current = "none";
+    moved.current = false;
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (axis.current === "v") return;
+    const dX = e.clientX - startX.current;
+    const dY = e.clientY - startY.current;
+    if (axis.current === "none") {
+      if (Math.abs(dX) > 8 && Math.abs(dX) > Math.abs(dY)) {
+        axis.current = "h";
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* synthetic events have no active pointer — fine */
+        }
+      } else if (Math.abs(dY) > 8) {
+        axis.current = "v"; // let the list scroll
+        return;
+      } else {
+        return;
+      }
+    }
+    moved.current = true;
+    setDragV(clamp(restOffset(openSide) + dX));
+  };
+  const onPointerUp = () => {
+    if (axis.current === "h" && dragRef.current !== null) snap(dragRef.current);
+    axis.current = "none";
+  };
+
+  // --- trackpad two-finger swipe (wheel) ---
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     let acc = 0;
-    let committed = false;
+    let active = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const reset = () => {
-      acc = 0;
-      committed = false;
-      setAnimating(true);
-      move(0);
-    };
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) {
-        if (acc !== 0 && !committed) reset(); // vertical scroll — abandon swipe
-        return;
-      }
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical → list scroll
       e.preventDefault();
-      e.stopPropagation();
-      clearTimeout(timer);
-      timer = setTimeout(reset, 160); // gesture ends after a quiet gap
-      if (committed) return;
-      acc -= e.deltaX; // natural scroll: fingers-left (deltaX>0) → card moves left
-      if (Math.abs(acc) >= SWIPE_THRESHOLD) {
-        committed = true;
-        (acc < 0 ? handlers.current.onSwipeLeft : handlers.current.onSwipeRight)();
-        setAnimating(true);
-        move(0);
-        return;
+      e.stopPropagation(); // don't let NotesApp collapse the sidebar
+      if (!active) {
+        active = true;
+        acc = restOffset(sideRef.current);
       }
-      setAnimating(false);
-      move(Math.max(-140, Math.min(140, acc)));
+      acc = clamp(acc - e.deltaX); // natural scroll: fingers-left (deltaX>0) → left
+      setDragV(acc);
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        active = false;
+        snap(acc);
+      }, 140);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", onWheel);
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    start.current = { x: e.clientX, y: e.clientY };
-    axis.current = "none";
-    swiped.current = false;
-    setAnimating(false);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!start.current) return;
-    const dX = e.clientX - start.current.x;
-    const dY = e.clientY - start.current.y;
-    if (axis.current === "none") {
-      if (Math.abs(dX) > 10 && Math.abs(dX) > Math.abs(dY)) {
-        axis.current = "h";
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-          /* no active pointer (e.g. synthetic events) — fine */
-        }
-      } else if (Math.abs(dY) > 10) {
-        axis.current = "v"; // let the list scroll
-      }
-    }
-    if (axis.current === "h") move(dX);
-  };
-
-  const finish = () => {
-    if (!start.current) return;
-    const d = dxRef.current;
-    if (axis.current === "h" && Math.abs(d) >= SWIPE_THRESHOLD) {
-      swiped.current = true;
-      if (d < 0) onSwipeLeft();
-      else onSwipeRight();
-    }
-    start.current = null;
-    axis.current = "none";
-    setAnimating(true);
-    move(0);
-  };
-
   const onClick = (e: React.MouseEvent) => {
-    // Suppress the click that follows a committed swipe so it doesn't open.
-    if (swiped.current) {
+    if (moved.current) {
+      // a drag just happened — swallow the click so it neither opens nor closes
       e.preventDefault();
       e.stopPropagation();
-      swiped.current = false;
+      moved.current = false;
       return;
     }
-    onOpen();
+    if (openSide) onReveal(null); // tap an open card to close it
+    else onOpenNote();
   };
+
+  const cls =
+    className + (openSide === "pin" ? " open-pin" : openSide === "trash" ? " open-trash" : "");
 
   return (
     <div className="swipe-wrap">
-      {dx < 0 && (
-        <div className="swipe-act pin">
-          <Icon name="pin" width={18} height={18} />
-        </div>
-      )}
-      {dx > 0 && (
-        <div className="swipe-act trash">
-          <Icon name="trash" width={18} height={18} />
-        </div>
-      )}
+      <button
+        type="button"
+        className="swipe-act pin"
+        aria-label="Pin"
+        onClick={() => {
+          onPin();
+          onReveal(null);
+        }}
+      >
+        <Icon name="pin" width={20} height={20} />
+      </button>
+      <button
+        type="button"
+        className="swipe-act trash"
+        aria-label="Move to Trash"
+        onClick={() => {
+          onTrash();
+          onReveal(null);
+        }}
+      >
+        <Icon name="trash" width={20} height={20} />
+      </button>
       <article
         ref={cardRef}
-        className={className}
-        style={{ transform: `translateX(${dx}px)`, transition: animating ? "transform .2s ease" : "none" }}
+        className={cls}
+        style={drag !== null ? { transform: `translateX(${drag}px)`, transition: "none" } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={finish}
-        onPointerCancel={finish}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onClick={onClick}
       >
         {children}
@@ -237,6 +264,8 @@ export function NoteList({
   keepTags,
 }: NoteListProps) {
   const title = filterTitle(filter);
+  // Which card currently has its swipe actions revealed (one at a time).
+  const [open, setOpen] = useState<{ id: number; side: Side } | null>(null);
 
   const exportLibrary = () => {
     // One markdown file with every note in the current view, separated by ---.
@@ -332,9 +361,14 @@ export function NoteList({
               <SwipeCard
                 key={note.id}
                 className={`mcard${note.id === selectedId ? " sel" : ""}${pinned ? " pinned" : ""}`}
-                onOpen={() => onSelect(note)}
-                onSwipeLeft={() => onPin(note)}
-                onSwipeRight={() => onTrash(note)}
+                openSide={open?.id === note.id ? open.side : null}
+                onReveal={(side) => setOpen(side ? { id: note.id, side } : null)}
+                onPin={() => onPin(note)}
+                onTrash={() => onTrash(note)}
+                onOpenNote={() => {
+                  setOpen(null);
+                  onSelect(note);
+                }}
               >
                 <div className="mt">
                   {emoji ? `${emoji} ` : ""}
