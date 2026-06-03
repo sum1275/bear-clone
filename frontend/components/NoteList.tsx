@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { type RefObject, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Menu, MenuHeader, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
@@ -24,7 +24,119 @@ interface NoteListProps {
   onSelect: (note: Note) => void;
   onCompose: () => void;
   onOpenDrawer: () => void;
+  onPin: (note: Note) => void;
+  onTrash: (note: Note) => void;
   keepTags: boolean;
+}
+
+// Distance (px) a card must travel before a swipe commits its action.
+const SWIPE_THRESHOLD = 80;
+
+// A note card you can swipe horizontally: left = pin, right = move to trash.
+// Vertical drags fall through to the list scroll (touch-action: pan-y), and a
+// gesture that doesn't pass the threshold springs back without selecting.
+function SwipeCard({
+  className,
+  onOpen,
+  onSwipeLeft,
+  onSwipeRight,
+  children,
+}: {
+  className: string;
+  onOpen: () => void;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  children: React.ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const dxRef = useRef(0);
+  const axis = useRef<"none" | "h" | "v">("none");
+  const swiped = useRef(false);
+
+  const move = (x: number) => {
+    dxRef.current = x;
+    setDx(x);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    start.current = { x: e.clientX, y: e.clientY };
+    axis.current = "none";
+    swiped.current = false;
+    setAnimating(false);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!start.current) return;
+    const dX = e.clientX - start.current.x;
+    const dY = e.clientY - start.current.y;
+    if (axis.current === "none") {
+      if (Math.abs(dX) > 10 && Math.abs(dX) > Math.abs(dY)) {
+        axis.current = "h";
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* no active pointer (e.g. synthetic events) — fine */
+        }
+      } else if (Math.abs(dY) > 10) {
+        axis.current = "v"; // let the list scroll
+      }
+    }
+    if (axis.current === "h") move(dX);
+  };
+
+  const finish = () => {
+    if (!start.current) return;
+    const d = dxRef.current;
+    if (axis.current === "h" && Math.abs(d) >= SWIPE_THRESHOLD) {
+      swiped.current = true;
+      if (d < 0) onSwipeLeft();
+      else onSwipeRight();
+    }
+    start.current = null;
+    axis.current = "none";
+    setAnimating(true);
+    move(0);
+  };
+
+  const onClick = (e: React.MouseEvent) => {
+    // Suppress the click that follows a committed swipe so it doesn't open.
+    if (swiped.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      swiped.current = false;
+      return;
+    }
+    onOpen();
+  };
+
+  return (
+    <div className="swipe-wrap">
+      {dx < 0 && (
+        <div className="swipe-act pin">
+          <Icon name="pin" width={18} height={18} />
+        </div>
+      )}
+      {dx > 0 && (
+        <div className="swipe-act trash">
+          <Icon name="trash" width={18} height={18} />
+        </div>
+      )}
+      <article
+        className={className}
+        style={{ transform: `translateX(${dx}px)`, transition: animating ? "transform .2s ease" : "none" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={finish}
+        onPointerCancel={finish}
+        onClick={onClick}
+      >
+        {children}
+      </article>
+    </div>
+  );
 }
 
 // The library switcher items, with their ⌥⌘ shortcuts (mirrors NotesApp's
@@ -47,9 +159,9 @@ const SORTS: { key: SortKey; label: string }[] = [
 ];
 
 const PREVIEWS: { key: PreviewStyle; label: string }[] = [
-  { key: "title", label: "Title Only" },
-  { key: "one", label: "Single Line" },
-  { key: "multi", label: "Multiple Lines" },
+  { key: "small", label: "Small" },
+  { key: "medium", label: "Medium" },
+  { key: "large", label: "Large" },
 ];
 
 export function NoteList({
@@ -68,6 +180,8 @@ export function NoteList({
   onSelect,
   onCompose,
   onOpenDrawer,
+  onPin,
+  onTrash,
   keepTags,
 }: NoteListProps) {
   const title = filterTitle(filter);
@@ -163,10 +277,12 @@ export function NoteList({
             const locked = flags.locked.has(note.id);
             const previewText = snippet(note.content);
             return (
-              <article
+              <SwipeCard
                 key={note.id}
                 className={`mcard${note.id === selectedId ? " sel" : ""}${pinned ? " pinned" : ""}`}
-                onClick={() => onSelect(note)}
+                onOpen={() => onSelect(note)}
+                onSwipeLeft={() => onPin(note)}
+                onSwipeRight={() => onTrash(note)}
               >
                 <div className="mt">
                   {emoji ? `${emoji} ` : ""}
@@ -192,7 +308,7 @@ export function NoteList({
                     ))}
                   </div>
                 )}
-              </article>
+              </SwipeCard>
             );
           })
         )}

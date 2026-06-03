@@ -10,33 +10,75 @@
 .editscroll { flex: 1; overflow-y: auto; }
 .editempty { display: flex; height: 100%; align-items: center; justify-content: center; color: var(--text-3); font-size: 15px; padding: 20px; text-align: center; }
 
-/* ---------- live editor (Bear-style: render everything, raw only the active line) ---------- */
+/* ---------- live editor (CodeMirror 6, Bear-style live preview) ----------
+   The doc buffer is always raw markdown; lib/cm/* decorate it so syntax is
+   hidden/revealed around the caret. These .cm-* classes mirror the look of the
+   rendered .doc styles in doc.css. */
 .live { min-height: 100%; }
 .livetitle {
   display: block; width: 100%; border: 0; outline: none; background: transparent;
   color: var(--text); font: inherit; font-size: 34px; font-weight: 700;
-  letter-spacing: -0.03em; margin: 0 0 4px;
+  letter-spacing: -0.03em; margin: 0 0 6px;
 }
 .livetitle::placeholder { color: var(--text-3); }
 
-/* a rendered block — clicking turns it into the raw textarea below */
-.liveblock { cursor: text; }
-.liveblock > :first-child { margin-top: 0; }
-.liveblock > :last-child { margin-bottom: 0; }
-/* keep consecutive single-line bullets reading as one list */
-.liveblock ul, .liveblock ol { margin: 3px 0; }
-.liveblock.blank { min-height: 1.65em; }
+.cm-host .cm-editor { background: transparent; }
+.cm-host .cm-content { min-height: 50vh; }
+.cm-host .cm-scroller { overflow: visible; }   /* the outer .editscroll scrolls */
+.cm-host .cm-line { padding: 0; }
 
-/* the one raw line under the caret */
-.liveinput {
-  display: block; width: 100%; border: 0; outline: none; resize: none; overflow: hidden;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  box-shadow: -8px 0 0 color-mix(in srgb, var(--text) 6%, transparent),
-               8px 0 0 color-mix(in srgb, var(--text) 6%, transparent);
-  border-radius: 4px; color: var(--text); font-family: var(--font-rubik);
-  font-size: var(--doc-fs, 17.5px); line-height: var(--doc-lh, 1.65);
-  padding: 0; margin: var(--doc-pspace, 11px) 0; caret-color: var(--caret);
+/* headings — sizes mirror doc.css; the #/## markers are hidden by livePreview */
+.cm-host .cm-h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; padding-top: 6px; }
+.cm-host .cm-h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; padding-top: 16px; }
+.cm-host .cm-h3 { font-size: 19px; font-weight: 600; line-height: 1.35; padding-top: 12px; }
+
+/* inline marks (delimiters revealed only when the caret is inside the span) */
+.cm-host .cm-strong { font-weight: 700; }
+.cm-host .cm-em { font-style: italic; }
+.cm-host .cm-strike { text-decoration: line-through; color: var(--text-2); }
+.cm-host .cm-mark { background: var(--hl); border-radius: 3px; }
+.cm-host .cm-inline-code { font-family: ui-monospace, monospace; font-size: .9em; background: var(--chip-bg); border-radius: 5px; padding: 1px 4px; }
+.cm-host .cm-hash { color: var(--accent); font-weight: 600; }
+.cm-host .cm-wikilink { color: var(--accent-link); border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.cm-host .cm-ol-mark { color: var(--text-3); font-weight: 600; }
+.cm-host .cm-bullet { color: var(--text-3); }
+
+/* task checkbox widget — a real, clickable box (never shows raw `- [ ]`) */
+.cm-host .cm-task-box {
+  display: inline-block; box-sizing: border-box; width: 1.05em; height: 1.05em;
+  vertical-align: -0.16em; border: 2px solid var(--text-3); border-radius: 5px;
+  cursor: pointer; position: relative;
 }
+.cm-host .cm-task-box.checked { background: var(--text); border-color: var(--text); }
+.cm-host .cm-task-box.checked::after {
+  content: ''; position: absolute; left: 0.3em; top: 0.07em; width: 0.26em; height: 0.5em;
+  border: solid var(--panel); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.cm-host .cm-task-done { color: var(--text-3); text-decoration: line-through; }
+
+/* thematic break (`---`) — subtle divider */
+.cm-host .cm-hr { border-top: 1px solid var(--rule); margin: 6px 0; }
+
+/* blockquote — subtle gray bar, no visible `>` */
+.cm-host .cm-quote { border-left: 2px solid var(--quote-bar); padding-left: 14px; color: var(--text-2); font-style: italic; }
+
+/* fenced code — dark block; corners round on first/last line, fences shown only
+   when the caret is inside (handled by livePreview) */
+.cm-host .cm-code {
+  background: var(--code-bg); color: var(--code-text); padding: 0 16px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.6;
+}
+.cm-host .cm-code-top { border-radius: 4px 4px 0 0; padding-top: 8px; }
+.cm-host .cm-code-bottom { border-radius: 0 0 4px 4px; padding-bottom: 8px; }
+/* a fence line with its ```/lang hidden — a slim band that acts as padding */
+.cm-host .cm-code-fence { font-size: 0; line-height: 8px; }
+
+/* render-only table widget */
+.cm-host .cm-table { margin: 12px 0; }
+.cm-host .cm-table table { width: 100%; border-collapse: collapse; font-size: 14.5px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.cm-host .cm-table th { background: var(--chip-bg); text-align: left; font-weight: 700; padding: 9px 12px; color: var(--text); }
+.cm-host .cm-table td { padding: 9px 12px; border-top: 1px solid var(--border); color: var(--text); }
+.cm-host .cm-table td:not(:last-child), .cm-host .cm-table th:not(:last-child) { border-right: 1px solid var(--border); }
 
 /* formatting pill (bottom of editor) — verbatim sizing from prototype */
 .edtoolbar { display: flex; justify-content: center; padding: 12px 0 16px; flex: 0 0 auto; }

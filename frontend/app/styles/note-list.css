@@ -12,10 +12,20 @@
 .psearch svg { width: 16px; height: 16px; flex: 0 0 auto; }
 .psearch input { border: 0; background: transparent; outline: none; color: var(--text); font: inherit; flex: 1; min-width: 0; }
 .listscroll { flex: 1; overflow-y: auto; }
-.mcard { padding: 13px 18px; border-bottom: 1px solid var(--rule); cursor: pointer; position: relative; }
+/* swipe: each card sits on top of two action layers (left=pin, right=trash);
+   sliding the (opaque) card reveals the one under the swipe direction */
+.swipe-wrap { position: relative; overflow: hidden; }
+.swipe-act {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  padding: 0 22px; color: #fff;
+}
+.swipe-act.pin { justify-content: flex-end; background: var(--text-2); }
+.swipe-act.trash { justify-content: flex-start; background: #e5484d; }
+
+.mcard { padding: 13px 18px; border-bottom: 1px solid var(--rule); cursor: pointer; position: relative; background: var(--panel); touch-action: pan-y; }
 .mcard.sel { background: var(--surface); }
 .mcard.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--text-3); }
-.mcard.pinned { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.mcard.pinned { background: color-mix(in srgb, var(--text) 5%, var(--panel)); }
 .mcard .mt { font-weight: 600; font-size: 15px; color: var(--text); }
 .mcard .ms {
   font-size: 13px; color: var(--text-2); margin-top: 3px; line-height: 1.45;
@@ -42,6 +52,7 @@
 .fab svg { width: 26px; height: 26px; }
 
 /* preview density (set from the Preview Style submenu) */
-.listscroll[data-preview="title"] .ms,
-.listscroll[data-preview="title"] .chips { display: none; }
-.listscroll[data-preview="one"] .ms { -webkit-line-clamp: 1; }
+.listscroll[data-preview="small"] .ms,
+.listscroll[data-preview="small"] .chips { display: none; }
+.listscroll[data-preview="medium"] .chips { display: none; }
+.listscroll[data-preview="medium"] .ms { -webkit-line-clamp: 2; }

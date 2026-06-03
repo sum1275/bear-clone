@@ -55,11 +55,14 @@
     border-left: 0; border-radius: 22px 22px 0 0; z-index: 42; box-shadow: 0 -10px 40px rgba(0,0,0,.3);
   }
 
-  /* phone-scale the doc + editing inputs */
-  .doc.mac { padding: 6px 22px 40px; max-width: none; }
+  /* phone-scale the doc + editing inputs. Setting font-size on .doc.mac scales
+     body text and the raw textarea together, so the no-jump anchoring holds. */
+  .doc.mac { padding: 6px 22px 40px; max-width: none; font-size: 16px; }
   .doc.mac h1 { font-size: 27px; }
   .doc.mac h2 { font-size: 20px; }
-  .doc.mac p { font-size: 16px; line-height: 1.6; }
+  .doc.mac p { line-height: 1.6; }
+  .cm-host .cm-h1 { font-size: 27px; }
+  .cm-host .cm-h2 { font-size: 20px; }
   .doc.mac .imgph { height: 190px; }
   .titleinput { font-size: 27px; padding: 8px 22px 0; max-width: none; }
   .rawarea { font-size: 16px; padding: 10px 22px 40px; max-width: none; }
