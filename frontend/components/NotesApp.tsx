@@ -131,9 +131,6 @@ export default function NotesApp() {
     const onWheel = (e: WheelEvent) => {
       if (!wide.matches) return; // three-pane only
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical scroll — ignore (fast path)
-      // Horizontal swipes over the note list are the cards' pin/trash gesture,
-      // not a panel-collapse — let SwipeCard own them.
-      if (e.target instanceof Element && e.target.closest(".listscroll")) return;
       if (contentCanScroll(e.target, e.deltaX)) return; // let content scroll
 
       const now = Date.now();
@@ -297,59 +294,6 @@ export default function NotesApp() {
     });
   }, []);
 
-  // ---- undo/redo for list swipe actions (trash / pin) ----
-  // Each entry records a single flag change so ⌘Z can reverse it and ⌘⇧Z replay.
-  const undoStack = useRef<{ key: keyof FlagSets; id: number; added: boolean }[]>([]);
-  const redoStack = useRef<typeof undoStack.current>([]);
-
-  const setFlagValue = useCallback((key: keyof FlagSets, id: number, added: boolean) => {
-    setFlags((prev) => {
-      const set = new Set(prev[key]);
-      if (added) set.add(id);
-      else set.delete(id);
-      return { ...prev, [key]: set };
-    });
-  }, []);
-
-  // Perform a flag change from a user gesture and record it as undoable.
-  const recordFlag = useCallback(
-    (key: keyof FlagSets, id: number, added: boolean) => {
-      setFlagValue(key, id, added);
-      undoStack.current.push({ key, id, added });
-      redoStack.current = [];
-    },
-    [setFlagValue],
-  );
-
-  const undo = useCallback(() => {
-    const op = undoStack.current.pop();
-    if (!op) return;
-    setFlagValue(op.key, op.id, !op.added); // reverse it
-    redoStack.current.push(op);
-  }, [setFlagValue]);
-
-  const redo = useCallback(() => {
-    const op = redoStack.current.pop();
-    if (!op) return;
-    setFlagValue(op.key, op.id, op.added); // re-apply
-    undoStack.current.push(op);
-  }, [setFlagValue]);
-
-  // ⌘Z / ⌘⇧Z (Ctrl on non-mac). When the editor has focus, leave undo to
-  // CodeMirror's own text history.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
-      const ae = document.activeElement;
-      if (ae instanceof Element && ae.closest(".cm-editor")) return;
-      e.preventDefault();
-      if (e.shiftKey) redo();
-      else undo();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
-
   const deleteForever = useCallback(
     async (id: number) => {
       await remove(id);
@@ -405,10 +349,6 @@ export default function NotesApp() {
         onSelect={openNote}
         onCompose={compose}
         onOpenDrawer={() => setDrawerOpen(true)}
-        onPin={(note) => recordFlag("pinned", note.id, !flags.pinned.has(note.id))}
-        onTrash={(note) => {
-          if (!flags.trashed.has(note.id)) recordFlag("trashed", note.id, true);
-        }}
         keepTags={settings.keepTags}
       />
 

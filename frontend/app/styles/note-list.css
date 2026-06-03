@@ -12,24 +12,10 @@
 .psearch svg { width: 16px; height: 16px; flex: 0 0 auto; }
 .psearch input { border: 0; background: transparent; outline: none; color: var(--text); font: inherit; flex: 1; min-width: 0; }
 .listscroll { flex: 1; overflow-y: auto; }
-/* swipe actions: each card sits on top of two edge buttons (left=pin,
-   right=trash, each 25% wide). Swiping slides the opaque card to reveal one
-   button which snaps open; clicking the button performs the action. */
-.swipe-wrap { position: relative; overflow: hidden; }
-.swipe-act {
-  position: absolute; top: 0; bottom: 0; width: 25%;
-  display: flex; align-items: center; justify-content: center;
-  border: 0; color: #fff; cursor: pointer;
-}
-.swipe-act.pin { left: 0; background: var(--text-2); }
-.swipe-act.trash { right: 0; background: #e5484d; }
-
-.mcard { padding: 13px 18px; border-bottom: 1px solid var(--rule); cursor: pointer; position: relative; background: var(--panel); touch-action: pan-y; transition: transform .2s ease; will-change: transform; }
-.mcard.open-pin { transform: translateX(25%); }
-.mcard.open-trash { transform: translateX(-25%); }
+.mcard { padding: 13px 18px; border-bottom: 1px solid var(--rule); cursor: pointer; position: relative; }
 .mcard.sel { background: var(--surface); }
 .mcard.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--text-3); }
-.mcard.pinned { background: color-mix(in srgb, var(--text) 5%, var(--panel)); }
+.mcard.pinned { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .mcard .mt { font-weight: 600; font-size: 15px; color: var(--text); }
 .mcard .ms {
   font-size: 13px; color: var(--text-2); margin-top: 3px; line-height: 1.45;

@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { Icon } from "@/components/icons";
 import { Menu, MenuHeader, MenuItem, MenuSep, SubMenu } from "@/components/Menu";
 import type { Note } from "@/lib/notes";
@@ -24,198 +24,7 @@ interface NoteListProps {
   onSelect: (note: Note) => void;
   onCompose: () => void;
   onOpenDrawer: () => void;
-  onPin: (note: Note) => void;
-  onTrash: (note: Note) => void;
   keepTags: boolean;
-}
-
-// Fraction of the card width revealed when an action snaps open (the pin/trash
-// button occupies this much of the right/left edge).
-const ACTION_FRACTION = 0.25;
-
-type Side = "pin" | "trash";
-
-// A note card with iOS-Mail-style swipe actions. Swiping (pointer drag or a
-// MacBook two-finger trackpad swipe) slides the card to *reveal* a button that
-// snaps open at 25% — it does NOT perform the action. The action only fires
-// when you then click the revealed button, which keeps a single swipe from ever
-// affecting more than one note. Swipe left → reveal trash (right); swipe right →
-// reveal pin (left). `openSide` is controlled by the parent so only one card is
-// open at a time.
-function SwipeCard({
-  className,
-  openSide,
-  onReveal,
-  onPin,
-  onTrash,
-  onOpenNote,
-  children,
-}: {
-  className: string;
-  openSide: Side | null;
-  onReveal: (side: Side | null) => void;
-  onPin: () => void;
-  onTrash: () => void;
-  onOpenNote: () => void;
-  children: React.ReactNode;
-}) {
-  const cardRef = useRef<HTMLElement>(null);
-  // Live offset (px) while a gesture is in progress; null when resting (the
-  // resting position then comes from the open-pin/open-trash CSS class).
-  const [drag, setDrag] = useState<number | null>(null);
-  const dragRef = useRef<number | null>(null);
-  const setDragV = (v: number | null) => {
-    dragRef.current = v;
-    setDrag(v);
-  };
-
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const axis = useRef<"none" | "h" | "v">("none");
-  const moved = useRef(false);
-
-  // Refs so the long-lived wheel listener always sees fresh values.
-  const sideRef = useRef(openSide);
-  const cb = useRef({ onReveal, onPin, onTrash });
-  useEffect(() => {
-    sideRef.current = openSide;
-    cb.current = { onReveal, onPin, onTrash };
-  });
-
-  const actionW = () => (cardRef.current?.clientWidth ?? 320) * ACTION_FRACTION;
-  const restOffset = (side: Side | null) =>
-    side === "pin" ? actionW() : side === "trash" ? -actionW() : 0;
-  const clamp = (x: number) => {
-    const w = actionW();
-    return Math.max(-w, Math.min(w, x));
-  };
-  // Decide where a finished gesture lands: open if dragged past half the reveal.
-  const snap = (offset: number) => {
-    const half = actionW() / 2;
-    const side: Side | null = offset <= -half ? "trash" : offset >= half ? "pin" : null;
-    setDragV(null);
-    cb.current.onReveal(side);
-  };
-
-  // --- pointer drag (touch / mouse) ---
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    startX.current = e.clientX;
-    startY.current = e.clientY;
-    axis.current = "none";
-    moved.current = false;
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (axis.current === "v") return;
-    const dX = e.clientX - startX.current;
-    const dY = e.clientY - startY.current;
-    if (axis.current === "none") {
-      if (Math.abs(dX) > 8 && Math.abs(dX) > Math.abs(dY)) {
-        axis.current = "h";
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-          /* synthetic events have no active pointer — fine */
-        }
-      } else if (Math.abs(dY) > 8) {
-        axis.current = "v"; // let the list scroll
-        return;
-      } else {
-        return;
-      }
-    }
-    moved.current = true;
-    setDragV(clamp(restOffset(openSide) + dX));
-  };
-  const onPointerUp = () => {
-    if (axis.current === "h" && dragRef.current !== null) snap(dragRef.current);
-    axis.current = "none";
-  };
-
-  // --- trackpad two-finger swipe (wheel) ---
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    let acc = 0;
-    let active = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical → list scroll
-      e.preventDefault();
-      e.stopPropagation(); // don't let NotesApp collapse the sidebar
-      if (!active) {
-        active = true;
-        acc = restOffset(sideRef.current);
-      }
-      acc = clamp(acc - e.deltaX); // natural scroll: fingers-left (deltaX>0) → left
-      setDragV(acc);
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        active = false;
-        snap(acc);
-      }, 140);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const onClick = (e: React.MouseEvent) => {
-    if (moved.current) {
-      // a drag just happened — swallow the click so it neither opens nor closes
-      e.preventDefault();
-      e.stopPropagation();
-      moved.current = false;
-      return;
-    }
-    if (openSide) onReveal(null); // tap an open card to close it
-    else onOpenNote();
-  };
-
-  const cls =
-    className + (openSide === "pin" ? " open-pin" : openSide === "trash" ? " open-trash" : "");
-
-  return (
-    <div className="swipe-wrap">
-      <button
-        type="button"
-        className="swipe-act pin"
-        aria-label="Pin"
-        onClick={() => {
-          onPin();
-          onReveal(null);
-        }}
-      >
-        <Icon name="pin" width={20} height={20} />
-      </button>
-      <button
-        type="button"
-        className="swipe-act trash"
-        aria-label="Move to Trash"
-        onClick={() => {
-          onTrash();
-          onReveal(null);
-        }}
-      >
-        <Icon name="trash" width={20} height={20} />
-      </button>
-      <article
-        ref={cardRef}
-        className={cls}
-        style={drag !== null ? { transform: `translateX(${drag}px)`, transition: "none" } : undefined}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onClick={onClick}
-      >
-        {children}
-      </article>
-    </div>
-  );
 }
 
 // The library switcher items, with their ⌥⌘ shortcuts (mirrors NotesApp's
@@ -259,13 +68,9 @@ export function NoteList({
   onSelect,
   onCompose,
   onOpenDrawer,
-  onPin,
-  onTrash,
   keepTags,
 }: NoteListProps) {
   const title = filterTitle(filter);
-  // Which card currently has its swipe actions revealed (one at a time).
-  const [open, setOpen] = useState<{ id: number; side: Side } | null>(null);
 
   const exportLibrary = () => {
     // One markdown file with every note in the current view, separated by ---.
@@ -358,17 +163,10 @@ export function NoteList({
             const locked = flags.locked.has(note.id);
             const previewText = snippet(note.content);
             return (
-              <SwipeCard
+              <article
                 key={note.id}
                 className={`mcard${note.id === selectedId ? " sel" : ""}${pinned ? " pinned" : ""}`}
-                openSide={open?.id === note.id ? open.side : null}
-                onReveal={(side) => setOpen(side ? { id: note.id, side } : null)}
-                onPin={() => onPin(note)}
-                onTrash={() => onTrash(note)}
-                onOpenNote={() => {
-                  setOpen(null);
-                  onSelect(note);
-                }}
+                onClick={() => onSelect(note)}
               >
                 <div className="mt">
                   {emoji ? `${emoji} ` : ""}
@@ -394,7 +192,7 @@ export function NoteList({
                     ))}
                   </div>
                 )}
-              </SwipeCard>
+              </article>
             );
           })
         )}
