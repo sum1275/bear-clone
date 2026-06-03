@@ -53,13 +53,14 @@ app/styles/*.css      foundation·shell·sidebar·note-list·editor·menu·info-
 components/NotesApp    "use client" orchestrator — owns all UI state (incl. sort/preview/settings) + ⌥⌘ shortcuts
 components/Sidebar     library rows w/ counts, nested tag tree, theme picker, ⚙ settings button
 components/NoteList    "Notes ⌄" library dropdown (sort/preview/export + shortcuts), search, cards, FAB
-components/Editor      Bear-style live editor (per-line render/raw) + formatting pill + ⋯ menu
+components/Editor      editor pane chrome: title input + top bar + formatting pill + ⋯ menu; embeds <LiveEditor>
+components/LiveEditor  CodeMirror 6 live-preview editor (Bear-style; client-only). Exposes wrapInline/toggleLinePrefix/focus
 components/Menu        reusable dropdown primitive (Menu/MenuHeader/MenuItem/MenuSep/SubMenu)
 components/Settings    Bear-style Settings window (General / Typography / Themes tabs)
 components/InfoPanel   Info (stats/dates/tags) + Outline (TOC) tabs
 components/icons       shared currentColor line-icon set
-lib/markdown.ts        escape-first markdown->HTML renderer + extractTags/noteStats/extractToc
-lib/segments.ts        splits content into editable blocks (line-level; groups code/table/ol/quote)
+lib/markdown.ts        escape-first markdown->HTML renderer (Copy-as-HTML + table widget) + extractTags/noteStats/extractToc
+lib/cm/*               CodeMirror live-preview engine: livePreview (decoration StateField), widgets (checkbox/bullet/hr/table), markdownExtras (#tag, ==hl==, [[wiki]] parsers), theme
 lib/tags.ts            nested #tag tree w/ descendant counts + auto-assigned monochrome tag icons (tagIcon)
 lib/view.ts            filter model (incl. pinned), sortNotes, ephemeral flag sets, list-derivation helpers
 lib/download.ts        client-side text→file download + stripTags (Export actions)
@@ -90,4 +91,5 @@ are session-only UI state (ephemeral `Set<number>` in `NotesApp`); Trash's
 
 - Backend: full notes CRUD is implemented — `GET /notes`, `POST /notes`, `GET /notes/{id}`, `PUT /notes/{id}`, `DELETE /notes/{id}` (see [backend/main.py](backend/main.py)). Unchanged by the frontend rebuild.
 - Frontend: rebuilt as the Bear-style responsive app described above. Full compose/edit/delete UI wired to the existing CRUD; markdown rendering, derived tags/stats/TOC, theming, and the three-pane↔phone responsive layout all working. TypeScript types are auto-generated from the backend OpenAPI schema into `frontend/lib/api.d.ts` via `npm run types:generate`.
+- Editor: the note body uses a **CodeMirror 6 live-preview** editor (`components/LiveEditor` + `lib/cm/*`). The buffer is always raw markdown; decorations hide block syntax (heading `#`, quote `>`, list markers, code fences when the caret is elsewhere) and reveal inline delimiters (`**`/`*`/`~~`/`==`/`` ` ``) only when the caret is inside that span — so there is no font-size jump or reflow. Checkboxes/bullets/tables/`---` render as widgets (tables are render-only for now; inline cell editing is a TODO). `lib/markdown.ts` `renderMarkdown` is still used for Copy-as-HTML and the table widget.
 - No tags support in the **backend** yet — the schema has only the `notes` table (`id`, `title`, `content`, `created_at`, `updated_at`); no tags table, `/tags` endpoint, or `?tag=` filter. Tags currently live only client-side (derived from `#hashtags`), so they are not searchable server-side and reset nothing on the backend.
