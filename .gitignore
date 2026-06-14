@@ -8,9 +8,14 @@ backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
 
+# Node
+node_modules/
+frontend/.next/
+
 # Env
 .env
 .env.local
+.env.production
 
 # OS
 .DS_Store

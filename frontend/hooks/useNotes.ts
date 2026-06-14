@@ -1,51 +1,47 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import * as api from "@/lib/notes";
-import type { NoteCreate } from "@/lib/notes";
+import { useEffect, useState } from 'react';
+
+interface Note {
+  id: number;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export function useNotes() {
-  const [notes, setNotes] = useState<api.Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  const loadNotes = useCallback(async () => {
+  const fetchNotes = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setNotes(await api.listNotes());
+      const response = await fetch('/api/notes');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch notes: ${response.status}`);
+      }
+      const data: Note[] = await response.json();
+      setNotes(data);
       setError(null);
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof Error ? err.message : 'Failed to fetch notes');
+      setNotes([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    loadNotes();
-  }, [loadNotes]);
+    fetchNotes();
+  }, [refetchTrigger]);
 
-  // Each mutation re-fetches so the UI always reflects backend state, and the
-  // result is returned so callers can react to it (e.g. select a new note).
-  const run = useCallback(
-    async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
-      try {
-        const result = await fn();
-        await loadNotes();
-        return result;
-      } catch (err) {
-        setError((err as Error).message);
-        return undefined;
-      }
-    },
-    [loadNotes],
-  );
+  const refetch = () => {
+    setRefetchTrigger(prev => prev + 1);
+  };
 
-  const create = useCallback((note: NoteCreate) => run(() => api.createNote(note)), [run]);
-  const edit = useCallback(
-    (id: number, note: NoteCreate) => run(() => api.updateNote(id, note)),
-    [run],
-  );
-  const remove = useCallback((id: number) => run(() => api.deleteNote(id)), [run]);
-
-  return { notes, loading, error, create, edit, remove };
+  return { notes, loading, error, refetch };
 }
