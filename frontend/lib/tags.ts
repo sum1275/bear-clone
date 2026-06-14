@@ -1,12 +1,11 @@
 import type { Note } from "@/lib/notes";
 import { extractTags } from "@/lib/markdown";
-import type { IconName } from "@/components/icons";
 
 // Bear assigns each tag a monochrome icon based on its name (no colors). We do
 // the same with a keyword map: the first rule whose pattern matches the tag
 // wins; anything unmatched falls back to a neutral hash. Matching is done on
 // the whole lowercased path so "work/visa" still resolves "visa".
-const TAG_ICON_RULES: [RegExp, IconName][] = [
+const TAG_ICON_RULES: [RegExp, string][] = [
   [/travel|trip|flight|vacation|holiday|tour|journey/, "plane"],
   [/visa|passport|immigration|id\b|licen[sc]e/, "id"],
   [/work|workshop|job|office|career|client|biz|business|meeting/, "briefcase"],
@@ -36,7 +35,7 @@ const TAG_ICON_RULES: [RegExp, IconName][] = [
 
 // Deterministic monochrome icon for a tag name — same name always maps to the
 // same glyph. Bear-style: intelligent keyword match, neutral hash otherwise.
-export function tagIcon(name: string): IconName {
+export function tagIcon(name: string): string {
   const key = name.toLowerCase();
   for (const [pattern, icon] of TAG_ICON_RULES) {
     if (pattern.test(key)) return icon;
@@ -48,7 +47,7 @@ export interface TagNode {
   name: string; // full path, e.g. "science/wildlife"
   label: string; // last path segment, shown in the sidebar row
   count: number; // distinct notes under this tag (descendants included)
-  icon: IconName; // auto-assigned monochrome icon
+  icon: string; // auto-assigned monochrome icon
   children: TagNode[];
 }
 
