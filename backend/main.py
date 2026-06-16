@@ -6,9 +6,6 @@ import os
 import aiosqlite
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from dotenv import load_dotenv
-
-load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +16,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -50,15 +47,49 @@ class Note(BaseModel):
 class NoteCreate(BaseModel):
    title: str
    content: str
+class NotesResponse(BaseModel):
+    notes:List[Note]
+    total:int
+    pages:int
+    current_page:int
 
-@app.get("/notes", response_model=List[Note])
-async def list_notes():
+@app.get("/notes", response_model=NotesResponse)
+async def list_notes(search:str='',page:int=1,limit:int=20):
     async with aiosqlite.connect(DB_PATH) as db: # opens a connection to the SQLite file
         db.row_factory = aiosqlite.Row # makes rows behave like dicts instead of plain tuples
-        async with db.execute("SELECT * FROM notes") as cursor: 
-            rows = await cursor.fetchall() # fetches all result rows into memory
-    return [dict(row) for row in rows] # converts each row to a plain dict so FastAPI can serialize it to JSON
+        
+        where_clause=''
+        params=[]
+        if search:
+            where_clause='WHERE title LIKE ? OR content LIKE ?'
+            search_pattern=f"%{search}%"
+            params=[search_pattern,search_pattern]
+        
+        count_query=f"SELECT COUNT(*) as count FROM notes {where_clause}"    
+        async with db.execute(count_query,params) as cursor:
+            total=(await cursor.fetchone())["count"]
+            
+            pages= (total + limit-1) // limit
+            
+            offset=(page-1)*limit
+            # query=f"SELECT * FROM notes {where_clause} ORDER BY updated_at DESC LIMIT ? OFFSET?"
+            query = f"SELECT * FROM notes {where_clause} ORDER BY updated_at DESC LIMIT ? OFFSET ?"
 
+            params.extend([limit,offset])
+            
+            async with db.execute(query,params) as cursor:
+                rows=await cursor.fetchall()
+                
+                notes=[dict(row) for row in rows]
+                
+                return {
+                    "notes":notes,
+                    "total":total,
+                    "pages":pages,
+                    "current_page":page
+                }
+            
+   
 @app.post("/notes", response_model=Note, status_code=201)
 async def create_note(body: NoteCreate):
     now = datetime.now(timezone.utc).isoformat()
