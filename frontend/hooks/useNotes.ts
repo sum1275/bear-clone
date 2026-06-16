@@ -9,23 +9,41 @@ interface Note {
   created_at: string;
   updated_at: string;
 }
+interface NotesResponse {
+  notes: Note[];
+  total: number;
+  pages: number;
+  current_page: number;
+}
 
-export function useNotes() {
+export function useNotes(search: string = '', page: number = 1, limit: number = 20) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
+  // const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+
 
   const fetchNotes = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/notes');
+      const params = new URLSearchParams({
+        search,
+        page: page.toString(),
+        limit: limit.toString(),
+      })
+      const response = await fetch(`/api/notes?${params}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch notes: ${response.status}`);
       }
-      const data: Note[] = await response.json();
-      setNotes(data);
+      const data: NotesResponse = await response.json();
+      setNotes(data.notes);
+      setTotal(data.total);
+      setPages(data.pages);
+      setCurrentPage(data.current_page);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch notes');
@@ -37,11 +55,8 @@ export function useNotes() {
 
   useEffect(() => {
     fetchNotes();
-  }, [refetchTrigger]);
+  }, [search, page, limit]);
 
-  const refetch = () => {
-    setRefetchTrigger(prev => prev + 1);
-  };
 
-  return { notes, loading, error, refetch };
+  return { notes, loading, error, currentPage, total, pages };
 }
