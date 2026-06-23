@@ -37,11 +37,7 @@ class Settings(BaseSettings):
     log_level: str  # "DEBUG" or "ERROR"
 
     # CORS - hardcoded defaults, don't read from env
-    cors_origins: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "https://bear-clone-production-468c.up.railway.app",
-    ]
+    cors_origins: List[str] = ["*"]
 
     # JWT
     jwt_secret: str
