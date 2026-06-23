@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     log_level: str  # "DEBUG" or "ERROR"
 
     # CORS
-    cors_origins: List[str]  # List of allowed domains
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ]  # List of allowed domains
 
     # JWT
     jwt_secret: str
