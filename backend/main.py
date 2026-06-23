@@ -35,7 +35,7 @@ app.add_middleware(
 app.add_exception_handler(BearException, exception_handler)
 
 # Include routes
-app.include_router(router)
+app.include_router(router, prefix="/api")
 
 
 if __name__ == "__main__":
