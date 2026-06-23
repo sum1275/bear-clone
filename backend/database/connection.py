@@ -18,7 +18,8 @@ async def _init_postgres():
             password=settings.db_password,
             database=settings.db_name,
             min_size=5,
-            max_size=20
+            max_size=20,
+            ssl=True
         )
 
         # Create tables
