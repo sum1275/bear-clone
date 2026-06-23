@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field, ConfigDict
 from typing import List, Optional
 
 class Settings(BaseSettings):
@@ -10,6 +11,12 @@ class Settings(BaseSettings):
         from config import settings
         print(settings.db_type)
     """
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     # Environment
     environment: str  # "development" or "production"
@@ -29,20 +36,17 @@ class Settings(BaseSettings):
     debug: bool
     log_level: str  # "DEBUG" or "ERROR"
 
-    # CORS
+    # CORS - hardcoded defaults, don't read from env
     cors_origins: List[str] = [
         "http://localhost:3000",
         "http://localhost:8080",
-    ]  # List of allowed domains
+        "https://bear-clone-production-468c.up.railway.app",
+    ]
 
     # JWT
     jwt_secret: str
     jwt_algorithm: str
     jwt_expiration_hours: int
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
     @property
     def is_production(self) -> bool:
