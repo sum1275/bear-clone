@@ -2,11 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   rewrites: async () => {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
     return {
       beforeFiles: [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:8000/:path*',
+          destination: `${backendUrl}/api/:path*`,
         },
       ],
     };
