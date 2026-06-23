@@ -1,20 +1,26 @@
-/* =====================================================================
-   Notes. — app styles (manifest)
-   Theme tokens + .doc markdown rendering are ported from the design
-   prototype. The actual rules live in app/styles/*.css, split by concern so
-   each can be read/edited in isolation. Order below = cascade order;
-   responsive.css MUST stay last (its overrides depend on coming after the
-   component styles they adjust).
-   ===================================================================== */
 @import "tailwindcss";
 
-@import "./styles/foundation.css";   /* reset + theme tokens + scrollbars */
-@import "./styles/shell.css";        /* .app three/four-pane layout */
-@import "./styles/sidebar.css";      /* sidebar rows + theme picker */
-@import "./styles/note-list.css";    /* middle pane: cards, search, FAB */
-@import "./styles/editor.css";       /* editor toolbar + live editor + pill */
-@import "./styles/menu.css";         /* shared dropdown / Menu primitive */
-@import "./styles/info-panel.css";   /* stats + outline panel */
-@import "./styles/doc.css";          /* rendered markdown (.doc) */
-@import "./styles/settings.css";     /* settings window (modal) */
-@import "./styles/responsive.css";   /* collapse + phone layout — keep LAST */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}

@@ -1,19 +1,29 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNotes } from '@/hooks/useNotes';
 import { useMutateNote } from '@/hooks/useMutateNote'
-
+import { useTagsData } from '@/hooks/useTagsData';
+import { useAuth } from '@/hooks/useAuth';
+import NotesList from './NotesList';
+import EditorPane from './EditorPane';
 
 export default function NotesApp() {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const { notes, total, pages, currentPage: apiCurrentPage, loading: notesLoading, error: notesError } = useNotes(searchQuery, currentPage, 20);
+    const { notes, total, pages, currentPage: apiCurrentPage, loading: notesLoading, error: notesError, fetchNotes } = useNotes(searchQuery, currentPage, 20);
     const { createNote, updateNote, deleteNote, loading: mutationLoading, error: mutationError } = useMutateNote();
+    const { tags, noteTags, fetchTagsForNote, createTag, addTagToNote, removeTagFromNote } = useTagsData()
+    const { user, logout } = useAuth()
 
     const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+    const [newTagName, setNewTagName] = useState('');
+    const [showTagInput, setShowTagInput] = useState(false);
+    const [selectedTagsId, setSelectedTagsIds] = useState<number[]>([])
 
     const handleSelectNote = (noteId: number) => {
         const note = notes.find(n => n.id == noteId);
@@ -22,6 +32,7 @@ export default function NotesApp() {
             setTitle(note.title);
             setContent(note.content);
             setIsCreating(false);
+            fetchTagsForNote(noteId);
         }
     }
     const handleCreateNew = () => {
@@ -29,17 +40,23 @@ export default function NotesApp() {
         setTitle('');
         setContent('');
         setIsCreating(true);
+        setSelectedTagsIds([]);
+        setShowTagInput(false);
+        setNewTagName('');
 
     }
     const handleSave = async () => {
         if (isCreating) {
             try {
-                await createNote(title, content);
+                await createNote(title, content, selectedTagsId);
                 setCurrentPage(1);
                 setSelectedNoteId(null);
                 setTitle('');
                 setContent('');
                 setIsCreating(false);
+                setSelectedTagsIds([]);
+                await fetchNotes();
+
 
             } catch (error) {
                 console.error('Error creating note:', error);
@@ -52,6 +69,8 @@ export default function NotesApp() {
                 setTitle('');
                 setContent('');
                 setIsCreating(false);
+                await fetchNotes();
+
             }
 
             catch (error) {
@@ -68,246 +87,158 @@ export default function NotesApp() {
                 setTitle('');
                 setContent('');
                 setIsCreating(false);
+                await fetchNotes();
+
             } catch (error) {
                 console.error('Error deleting note:', error);
             }
         }
     }
-
-    return (<div
-
-        style={{
-            display: 'flex',
-            height: '100vh',
-            gap: '20px',
-            backgroundColor: '#f5f5f5',
-
-        }}>
-        <div
-            style={{
-                flex: 1, border: '1px solid #ddd',
-                padding: '15px',
-                overflowY: 'auto',
-                backgroundColor: 'white',
-                borderRadius: '8px',
-
-            }}>
-            <h2
-                style={{ marginTop: 0, marginBottom: '15px', color: '#333' }}
-            >
-
-                Notes ({notes.length})
-
-            </h2>
-            <input type="text"
-                placeholder='Search Notes ...'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                    width: '100%',
-                    padding: '10px',
-                    marginBottom: '15px',
-                    fontSize: '14px',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    outline: 'none'
-                }}
-            />
-            <button
-                onClick={handleCreateNew}
-                style={{
-                    width: '100%',
-                    marginBottom: '15px',
-                    padding: '10px 12px',
-                    color: 'red',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500
-                }}
-            >+ New Note</button>
+    const handleCreateNewTag = async () => {
+        if (!newTagName.trim()) {
+            return
+        }
+        try {
+            const newTag = await createTag(newTagName);
+            if (newTag) {
+                setNewTagName('')
+                setShowTagInput(false)
+            }
+        } catch (err) {
+            console.error('Error creating tag:', err)
+        }
+    }
+    const handleAddTagToNote = async (tagId: number) => {
+        if (isCreating) {
+            // When creating: add to selected tags
+            setSelectedTagsIds((prev) => [...prev, tagId]);
+        } else if (selectedNoteId !== null) {
+            // When editing: call API to add tag to note
+            try {
+                await addTagToNote(selectedNoteId, tagId);
+            } catch (err) {
+                console.error('Error adding tags', err)
+            }
+        }
+    }
 
 
-            {notesLoading ? <p style={{ color: '#666', textAlign: 'center' }}>
-                Loading Notes ...</p> : null}
-            {notesError ? <p style={{ color: 'red', textAlign: 'center' }}>
-                Error: {notesError}
-            </p> : null}
-            <ul
-                style={{
-                    listStyle: 'none',
-                    padding: 0,
-                    margin: 0
-                }}
-            >
-                {notes.map(note => (
-                    <li
-                        key={note.id}
-                        onClick={() => handleSelectNote(note.id)}
-                        style={{
-                            padding: '12px',
-                            marginBottom: '10px',
-                            border: selectedNoteId == note.id ? '2px solid #007bff' : '1px solid #ddd',
-                            cursor: 'pointer',
-                            backgroundColor: selectedNoteId == note.id ? '#e7f3ff' : '#fafafa',
-                            borderRadius: '6px',
-                            transition: 'all 0.2s ease'
-                        }}>
+    useEffect(() => {
+        // Only autosave if editing an existing note 
+        if (selectedNoteId !== null && !isCreating) {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current)
+            }
+            autoSaveTimerRef.current = setTimeout(async () => {
+                setAutoSaveStatus('saving')
+                try {
+                    await updateNote(selectedNoteId, title, content);
+                    setAutoSaveStatus('saved')
+                    setTimeout(() => setAutoSaveStatus('idle'), 2000)
 
+                } catch (error) {
+                    console.error('autosaved failed', error)
+                    setAutoSaveStatus('idle')
+                }
+            }, 2000)
 
-                        <strong style={{
-                            color: '#333', display: 'block'
-                        }}>
-                            {note.title}
-                        </strong>
-                        <small style={{ color: '#666' }}>{new Date(note.updated_at).toLocaleDateString()}</small>
-                    </li>
-                ))}
-            </ul>
+        }
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current)
+            }
+        }
+    }, [title, content, selectedNoteId, isCreating, updateNote])
 
-            {/* Pagination Controls */}
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            {/* Header */}
             <div
                 style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginTop: '15px',
-                    paddingTop: '15px',
-                    borderTop: '1px solid #ddd'
-                }}
-            ><button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage == 1 || notesLoading}
-                style={{
-                    padding: '8px 12px',
-                    backgroundColor: currentPage == 1 ? '#ddd' : '#007bff',
+                    padding: '15px 20px',
+                    backgroundColor: '#333',
                     color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: currentPage == 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
-                    fontWeight: '500'
-
+                    borderBottom: '1px solid #222',
                 }}
-            >←  Previous </button>
-                <span
-                    style={{
-                        color: '#666', fontSize: '14px'
-                    }}
-                >page {currentPage} of {pages}</span>
-                <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, pages))}
-                    disabled={currentPage === pages || pages === 0 || notesLoading}
-                    style={{
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        backgroundColor: currentPage === pages ? '#ddd' : '#007bff',
-                        cursor: currentPage === pages ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        padding: '8px 12px',
-
-                    }}
-                >Next  →</button>
-
+            >
+                <h1 style={{ margin: 0, fontSize: '20px' }}>Bear Notes</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    {user && <span style={{ fontSize: '14px' }}>👤 {user.username}</span>}
+                    <button
+                        onClick={logout}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                        }}
+                    >
+                        Logout
+                    </button>
+                </div>
             </div>
 
+            {/* Main content */}
+            <div
+                style={{
+                    display: 'flex',
+                    flex: 1,
+                    gap: '20px',
+                    padding: '20px',
+                    backgroundColor: '#f5f5f5',
+                    overflow: 'hidden',
+                }}
+            >
+            <NotesList
+                notes={notes}
+                selectedNoteId={selectedNoteId}
+                searchQuery={searchQuery}
+                currentPage={currentPage}
+                pages={pages}
+                loading={notesLoading}
+                error={notesError}
+                onSearchChange={setSearchQuery}
+                onSelectNote={handleSelectNote}
+                onCreateNew={handleCreateNew}
+                onPageChange={setCurrentPage}
+            />
+
+            <EditorPane
+                selectedNoteId={selectedNoteId}
+                isCreating={isCreating}
+                title={title}
+                content={content}
+                autoSaveStatus={autoSaveStatus}
+                mutationLoading={mutationLoading}
+                mutationError={mutationError}
+                allTags={tags}
+                selectedTagIds={selectedTagsId}
+                noteTags={noteTags}
+                showTagInput={showTagInput}
+                newTagName={newTagName}
+                onTitleChange={setTitle}
+                onContentChange={setContent}
+                onSave={handleSave}
+                onDelete={() => handleDeleteNote(selectedNoteId!)}
+                onShowTagInputChange={setShowTagInput}
+                onNewTagNameChange={setNewTagName}
+                onCreateTag={handleCreateNewTag}
+                onAddTag={handleAddTagToNote}
+                onRemoveTag={(tagId) => {
+                    if (isCreating) {
+                        setSelectedTagsIds((prev) => prev.filter((id) => id !== tagId));
+                    } else if (selectedNoteId) {
+                        removeTagFromNote(selectedNoteId, tagId);
+                    }
+                }}
+            />
+            </div>
         </div>
-
-        <div
-            style={{ flex: 1, border: '1px solid #ddd', padding: '15px', display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderRadius: '8px' }}
-        >
-
-            {selectedNoteId == null && !isCreating ? (<div
-
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999' }}>
-
-                <p style={{ fontSize: '16px' }}>Select a note or create a new one</p>
-
-            </div>) : (
-                <>
-                    <input type="text"
-                        placeholder='Note Title'
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        style={{
-                            padding: '10px',
-                            marginBottom: '10px',
-                            fontSize: '18px',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            fontWeight: 'bold',
-                            outline: 'none',
-                        }}
-
-                    />
-
-                    <textarea
-                        placeholder='Content (markdown support)'
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        style={{
-                            flex: 1,
-                            padding: '10px',
-                            marginBottom: '15px',
-                            fontFamily: 'monospace',
-                            fontSize: '14px',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            resize: 'none',
-                            outline: 'none',
-                        }}
-                    />
-                    {mutationError && (<div style={{ color: '#d32f2f', backgroundColor: '#ffebee', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '14px' }}>
-                        Error:{mutationError}
-                    </div>)}
-                    <div style={{ display: 'flex', gap: '10px' }}>
-
-                        <button
-                            onClick={handleSave}
-                            disabled={mutationLoading}
-                            style={{
-                                flex: 1,
-                                padding: '10px 16px',
-                                backgroundColor: mutationLoading ? '#cccccc' : '#28a745',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: mutationLoading ? 'not-allowed' : 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 500,
-                            }}
-
-                        >
-
-                            {mutationLoading ? 'Saving' : 'Save'}
-                        </button>
-
-
-                        {selectedNoteId && (
-                            <button
-                                onClick={() => handleDeleteNote(selectedNoteId)}
-                                disabled={mutationLoading}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 16px',
-                                    backgroundColor: mutationLoading ? '#cccccc' : '#dc3545',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: mutationLoading ? 'not-allowed' : 'pointer',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                }}
-
-                            >Delete</button>
-                        )}
-                    </div>
-
-                </>)}
-        </div>
-
-
-    </div>)
+    )
 }

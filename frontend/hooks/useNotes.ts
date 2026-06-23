@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiCall } from '@/lib/api-client';
 
 interface Note {
   id: number;
   title: string;
   content: string;
+  user_id: number;
   created_at: string;
   updated_at: string;
 }
@@ -20,11 +22,9 @@ export function useNotes(search: string = '', page: number = 1, limit: number = 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-
 
   const fetchNotes = async () => {
     setLoading(true);
@@ -33,9 +33,9 @@ export function useNotes(search: string = '', page: number = 1, limit: number = 
       const params = new URLSearchParams({
         search,
         page: page.toString(),
-        limit: limit.toString(),
+        page_size: limit.toString(),
       })
-      const response = await fetch(`/api/notes?${params}`);
+      const response = await apiCall(`/api/notes?${params}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch notes: ${response.status}`);
       }
@@ -57,6 +57,5 @@ export function useNotes(search: string = '', page: number = 1, limit: number = 
     fetchNotes();
   }, [search, page, limit]);
 
-
-  return { notes, loading, error, currentPage, total, pages };
+  return { notes, loading, error, currentPage, total, pages, fetchNotes };
 }
