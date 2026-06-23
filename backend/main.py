@@ -34,8 +34,8 @@ app.add_middleware(
 # Add custom exception handler
 app.add_exception_handler(BearException, exception_handler)
 
-# Include routes
-app.include_router(router)
+# Include routes with /api prefix
+app.include_router(router, prefix="/api")
 
 
 if __name__ == "__main__":
