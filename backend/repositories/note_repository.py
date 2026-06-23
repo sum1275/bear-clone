@@ -433,3 +433,16 @@ class UserRepository:
             cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = await cursor.fetchone()
             return dict(row) if row else None
+
+    @staticmethod
+    async def get_all_users(
+        db: Union[aiosqlite.Connection, asyncpg.Connection]
+    ) -> List[dict]:
+        """Get all users"""
+        if settings.is_postgres:
+            rows = await db.fetch("SELECT * FROM users")
+            return [dict(row) for row in rows]
+        else:
+            cursor = await db.execute("SELECT * FROM users")
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
