@@ -1,6 +1,11 @@
 class BearException(Exception):
     """Base exception for Bear Notes API"""
-    pass
+    status_code = 400
+    detail = "Bad request"
+
+    def __init__(self, message: str = None):
+        self.detail = message or self.detail
+        super().__init__(self.detail)
 
 class NoteNotFound(BearException):
     """Raised when a note is not found"""
