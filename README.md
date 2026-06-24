@@ -22,8 +22,8 @@ three-pane layout that collapses to a single column on phones.
 
 ## Tech stack
 
-- **Backend** — Python / FastAPI with SQLite via `aiosqlite`. Schema is created
-  on first run; there is no migrations library.
+- **Backend** — Python / FastAPI with PostgreSQL (asyncpg) or SQLite (aiosqlite). Schema is created on first run; there is no migrations library.
+
 - **Frontend** — Next.js (16.x) with TypeScript. API types are generated from
   the backend's OpenAPI schema.
 
